@@ -18,8 +18,11 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: boolean 
   static getDerivedStateFromError() { return { error: true } }
   render() { return this.state.error ? <div style={{ padding: 40 }}><h1>页面暂时无法显示</h1><p>请刷新页面重试。浏览器中的学习数据会保留。</p><button onClick={() => window.location.reload()}>重新加载</button></div> : this.props.children }
 }
+// BASE_URL 在构建时由 `vite build --base=...` 决定（如 `/react-lite/`）。
+// 传给 BrowserRouter 作为 basename，GitHub Pages 子路径部署时路由才能正确匹配。
+const basename = import.meta.env.BASE_URL.replace(/\/$/, '')
 export default function App() {
-  return <ErrorBoundary><BrowserRouter><Suspense fallback={<div className="loading" role="status">正在打开练习室…</div>}><Routes><Route element={<Layout/>}>
+  return <ErrorBoundary><BrowserRouter basename={basename}><Suspense fallback={<div className="loading" role="status">正在打开练习室…</div>}><Routes><Route element={<Layout/>}>
     <Route index element={<Dashboard/>}/><Route path="questions" element={<Questions/>}/><Route path="questions/:id" element={<Detail/>}/>
     <Route path="practice" element={<Practice mode="practice"/>}/><Route path="practice/session" element={<Session mode="practice"/>}/>
     <Route path="review" element={<Questions review/>}/><Route path="mock" element={<Practice mode="mock"/>}/><Route path="mock/session" element={<Session mode="mock"/>}/><Route path="mock/report/:sessionId" element={<Report/>}/>
