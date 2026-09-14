@@ -1,4 +1,4 @@
-import{T as e,g as t,v as n,x as r}from"./index-DciViYoI.js";var i={html:`<h1>前端技术深度进阶路线（12 周 · 求职版 · 最终整合）</h1>
+import{T as e,g as t,v as n,x as r}from"./index-Beznj4EK.js";var i={html:`<h1>前端技术深度进阶路线（12 周 · 求职版 · 最终整合）</h1>
 <blockquote>
 <p>适用对象：3–4 年前端经验，以 React / TypeScript 为主，能独立完成常规业务，但知识较零散，希望补足原理、工程深度、问题诊断与技术表达。</p>
 <p>建议投入：每周 12–15 小时。在职可安排工作日每天 1–1.5 小时，周末共 5–7 小时。</p>
