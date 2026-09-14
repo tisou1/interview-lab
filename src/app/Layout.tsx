@@ -20,7 +20,10 @@ export default function Layout() {
   const location = useLocation()
   const dialog = useRef<HTMLDialogElement>(null)
   const learned = questions.filter(q => progress[q.id]?.mastery && progress[q.id].mastery !== 'new').length
-  useEffect(() => { document.documentElement.dataset.theme = theme }, [theme])
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    document.documentElement.classList.toggle('dark', theme === 'dark')
+  }, [theme])
   useEffect(() => {
     if (!mock || mock.completedAt) return
     const remaining = Date.parse(mock.deadline!) - Date.now()

@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import type { Mastery, Question } from '../types'
 import { masteryNames } from '../types'
 import { loadQuestion, questionMap } from '../data/questions'
 import { HeaderEntrance } from './Motion'
+import { Button } from './ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
 import styles from '../styles/App.module.css'
 
 const icons: Record<string, ReactNode> = {
@@ -46,7 +48,14 @@ export function QuestionAnswer({ id }: { id: number }) {
   return <>{question.answerSections.map(section => <section key={section.id}><h3>{section.title}</h3><HtmlContent html={section.html}/></section>)}</>
 }
 export function ConfirmDialog({ title, children, onConfirm, onClose, confirmLabel = '确认' }: { title: string; children: ReactNode; onConfirm: () => void; onClose: () => void; confirmLabel?: string }) {
-  const ref = useRef<HTMLDialogElement>(null)
-  useEffect(() => { const element = ref.current!; element.showModal(); return () => element.close() }, [])
-  return <dialog ref={ref} className={styles.dialog} aria-labelledby="dialog-title" onCancel={onClose}><h2 id="dialog-title">{title}</h2><div>{children}</div><div className={styles.actions}><button autoFocus onClick={onClose}>取消</button><button className={styles.primary} onClick={() => { onConfirm(); onClose() }}>{confirmLabel}</button></div></dialog>
+  return <Dialog open onOpenChange={open => { if (!open) onClose() }}>
+    <DialogContent showCloseButton={false} className="sm:max-w-md">
+      <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
+      <DialogDescription asChild><div>{children}</div></DialogDescription>
+      <DialogFooter>
+        <Button variant="outline" autoFocus onClick={onClose}>取消</Button>
+        <Button onClick={() => { onConfirm(); onClose() }}>{confirmLabel}</Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 }

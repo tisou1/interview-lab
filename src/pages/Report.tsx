@@ -7,11 +7,12 @@ import { Empty, PageHeader, QuestionAnswer } from '../components/ui'
 import { BarChart } from '../components/Chart'
 import { Metric } from './Dashboard'
 import styles from '../styles/App.module.css'
+import { toast } from 'sonner'
 
 function ReportItem({ item, session }: { item: SessionItem; session: PracticeSession }) {
   const [open, setOpen] = useState(false)
   const rate = useLearning(s => s.rateReport)
-  return <section className={`${styles.card} ${styles.reportItem}`}><div className={styles.questionMeta}><span>#{item.questionId}</span><span>{categoryNames[item.category]}</span><span>思考 {formatTime(item.seconds)}</span><span>{item.status === 'answered' ? '已回答' : item.status === 'again' ? '不会' : '未回答'}{item.flagged ? ' · 待复查' : ''}</span></div><h3 style={{ marginTop: 10 }}>{item.title}</h3><div className={styles.actions}><span className={styles.muted}>我的自评</span>{(['again', 'hard', 'good'] as const).map(rating => <button key={rating} className={item.mastery === rating ? styles[rating] : ''} aria-pressed={item.mastery === rating} onClick={() => rate(session.id, item.questionId, rating)}>{masteryNames[rating]}</button>)}</div><details onToggle={e => setOpen(e.currentTarget.open)}><summary>查看完整题解</summary>{open && <QuestionAnswer id={item.questionId}/>}</details></section>
+  return <section className={`${styles.card} ${styles.reportItem}`}><div className={styles.questionMeta}><span>#{item.questionId}</span><span>{categoryNames[item.category]}</span><span>思考 {formatTime(item.seconds)}</span><span>{item.status === 'answered' ? '已回答' : item.status === 'again' ? '不会' : '未回答'}{item.flagged ? ' · 待复查' : ''}</span></div><h3 style={{ marginTop: 10 }}>{item.title}</h3><div className={styles.actions}><span className={styles.muted}>我的自评</span>{(['again', 'hard', 'good'] as const).map(rating => <button key={rating} className={item.mastery === rating ? styles[rating] : ''} aria-pressed={item.mastery === rating} onClick={() => { rate(session.id, item.questionId, rating); toast.success('报告自评已更新') }}>{masteryNames[rating]}</button>)}</div><details onToggle={e => setOpen(e.currentTarget.open)}><summary>查看完整题解</summary>{open && <QuestionAnswer id={item.questionId}/>}</details></section>
 }
 export default function Report() {
   const { sessionId } = useParams()

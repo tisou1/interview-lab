@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 const key = 'frontend-interview-lab:v1'
 
 test('browse, search, reveal, rate, favorite and preserve BrowserRouter history', async ({ page }) => {
-  await page.goto('/questions')
+  await page.goto('questions')
   await page.getByRole('textbox', { name: '搜索题目' }).fill('React')
   await expect(page).toHaveURL(/q=React/)
   const link = page.locator('article a').first()
@@ -26,7 +26,7 @@ test('browse, search, reveal, rate, favorite and preserve BrowserRouter history'
 })
 
 test('five-question practice restores drafts and requires a rating or skip', async ({ page }) => {
-  await page.goto('/practice')
+  await page.goto('practice')
   await page.getByRole('button', { name: '开始练习', exact: true }).click()
   await page.getByRole('textbox', { name: '回答草稿', exact: true }).fill('刷新仍在的练习草稿')
   await page.reload()
@@ -44,7 +44,7 @@ test('five-question practice restores drafts and requires a rating or skip', asy
 })
 
 test('mock hides answers, restores deadline, produces report and queues weak questions', async ({ page }) => {
-  await page.goto('/mock')
+  await page.goto('mock')
   await page.getByRole('button', { name: '开始模拟面试', exact: true }).click()
   await expect(page.getByRole('textbox', { name: '回答草稿', exact: true })).toBeVisible()
   const deadline = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!).state.mock.deadline, key)
@@ -67,12 +67,12 @@ test('mock hides answers, restores deadline, produces report and queues weak que
   await expect(page.locator('details[open]').filter({ has: page.getByText('查看完整题解', { exact: true }) }).locator('section').first()).toBeVisible()
   await page.reload()
   await expect(page.getByRole('heading', { name: '逐题对照与自评' })).toBeVisible()
-  await page.goto('/review?status=wrong')
+  await page.goto('review?status=wrong')
   await expect(page.locator('article')).toHaveCount(1)
 })
 
 test('elapsed mock automatically submits once after reload', async ({ page }) => {
-  await page.goto('/mock')
+  await page.goto('mock')
   await page.getByRole('button', { name: '开始模拟面试', exact: true }).click()
   await expect(page.getByRole('textbox', { name: '回答草稿', exact: true })).toBeVisible()
   // Apply elapsed wall time before hydration, after the old page has flushed its clock.
@@ -84,11 +84,11 @@ test('elapsed mock automatically submits once after reload', async ({ page }) =>
 })
 
 test('export, clear, import and restore data and theme', async ({ page }, testInfo) => {
-  await page.goto('/questions/1')
+  await page.goto('questions/1')
   await page.getByRole('textbox', { name: '回答草稿', exact: true }).fill('可恢复的草稿')
   await page.getByRole('button', { name: /查看参考答案/ }).click()
   await page.getByRole('button', { name: '3 · 掌握' }).click()
-  await page.goto('/settings')
+  await page.goto('settings')
   await page.getByRole('button', { name: '深色', exact: true }).click()
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: '导出 JSON 备份' }).click()
@@ -101,10 +101,10 @@ test('export, clear, import and restore data and theme', async ({ page }, testIn
   await page.getByLabel('选择学习数据备份').setInputFiles(path)
   await page.getByRole('dialog').getByRole('button', { name: '确认导入' }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
-  await page.goto('/questions/1')
+  await page.goto('questions/1')
   await expect(page.getByRole('textbox', { name: '回答草稿', exact: true })).toHaveValue('可恢复的草稿')
   await expect(page.getByRole('button', { name: '3 · 掌握' })).toHaveAttribute('aria-pressed', 'true')
-  await page.goto('/stats')
+  await page.goto('stats')
   await expect(page.getByRole('heading', { name: '看见自己的进步。' })).toBeVisible()
   await page.locator('summary').first().click()
   await expect(page.getByRole('table').first()).toBeVisible()
@@ -113,7 +113,7 @@ test('export, clear, import and restore data and theme', async ({ page }, testIn
 test('screens, responsive navigation, fullscreen draft and keyboard focus', async ({ page }, testInfo) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
-  await page.goto('/')
+  await page.goto('.')
   await expect(page.getByRole('heading', { name: '每一次思考，都算数。' })).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('dashboard.png'), fullPage: true })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
@@ -122,7 +122,7 @@ test('screens, responsive navigation, fullscreen draft and keyboard focus', asyn
     await page.getByRole('dialog').getByRole('link', { name: /全部题库/ }).click()
     await expect(page).toHaveURL(/\/questions/)
   }
-  await page.goto('/questions/98')
+  await page.goto('questions/98')
   await page.getByRole('button', { name: '全屏编辑', exact: true }).click()
   await page.getByRole('textbox', { name: '全屏回答草稿' }).fill('F R 1 2 3')
   await page.keyboard.press('Escape')
@@ -132,12 +132,12 @@ test('screens, responsive navigation, fullscreen draft and keyboard focus', asyn
   await page.getByRole('button', { name: '2 · 模糊' }).click()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await page.screenshot({ path: testInfo.outputPath('question.png'), fullPage: true })
-  await page.goto('/roadmap')
+  await page.goto('roadmap')
   await expect(page.getByRole('heading', { name: '12 周，走得更深入。' })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-  await page.goto('/settings')
+  await page.goto('settings')
   await page.getByRole('button', { name: '深色', exact: true }).click()
-  await page.goto('/')
+  await page.goto('.')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   await page.screenshot({ path: testInfo.outputPath('dashboard-dark.png'), fullPage: true })
   expect(errors).toEqual([])
@@ -148,19 +148,19 @@ test('Markdown edit adds question 116 through the development watcher', async ({
   const path = 'fe/JavaScript_React原理与实战模拟面试题库.md'
   const original = readFileSync(path, 'utf8')
   const appended = '\n\n## 116. 自动监听验收题\n\n<!-- question: {"category":"javascript","type":"coding","difficulty":"intermediate","tags":["ParserTest"],"estimatedMinutes":5} -->\n\n这是新增题干。\n\n<details>\n<summary>参考答案</summary>\n\n### 参考答案\n\n只编辑 Markdown 即可加入题库。\n\n</details>\n'
-  await page.goto('/questions')
+  await page.goto('questions')
   try {
     writeFileSync(path, original + appended)
     await expect(async () => {
-      await page.goto('/questions?q=ParserTest')
+      await page.goto('questions?q=ParserTest')
       await expect(page.getByRole('heading', { name: '自动监听验收题' })).toBeVisible()
     }).toPass({ timeout: 15000 })
     await page.locator('article a').first().click()
-    await expect(page).toHaveURL('/questions/116')
+    await expect(page).toHaveURL(/\/interview-lab\/questions\/116$/)
     await page.getByRole('button', { name: /查看参考答案/ }).click()
     await expect(page.getByText('只编辑 Markdown 即可加入题库。')).toBeVisible()
     await page.getByRole('button', { name: '3 · 掌握' }).click()
-    await page.goto('/stats')
+    await page.goto('stats')
     await expect(page.getByText('题库共 116 道，统计当前最新自评')).toBeVisible()
   } finally { writeFileSync(path, original) }
 })

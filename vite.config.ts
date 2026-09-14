@@ -1,5 +1,7 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+import path from 'node:path'
 import { buildContent, sourceFiles } from './scripts/build-question-data.mjs'
 
 function contentPlugin(): Plugin {
@@ -23,6 +25,7 @@ function contentPlugin(): Plugin {
 
 export default defineConfig({
   base: '/interview-lab/',
-  plugins: [contentPlugin(), react()],
+  plugins: [contentPlugin(), react(), tailwindcss()],
+  resolve: { alias: { '@': path.resolve(import.meta.dirname, './src') } },
   build: { target: 'es2022', chunkSizeWarningLimit: 350 },
 })
