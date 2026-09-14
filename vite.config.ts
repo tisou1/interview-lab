@@ -22,7 +22,7 @@ function contentPlugin(): Plugin {
 }
 
 export default defineConfig({
-  base: command === 'build' || isPreview ? '/interview-lab/' : '/',
+  base: '/interview-lab/',
   plugins: [contentPlugin(), react()],
   build: { target: 'es2022', chunkSizeWarningLimit: 350 },
 })
