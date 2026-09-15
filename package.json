@@ -12,7 +12,8 @@
     "content": "node scripts/build-question-data.mjs",
     "typecheck": "tsc --noEmit",
     "build": "pnpm content && pnpm typecheck && vite build && node scripts/check-budget.mjs",
-    "preview": "vite preview --host 127.0.0.1",
+    "build:vercel":"pnpm content && pnpm typecheck && vite build --base=/ && node scripts/check-budget.mjs",   
+    "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "deploy": "pnpm build && gh-pages -d dist"
