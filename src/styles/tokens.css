@@ -1,32 +1,32 @@
 :root:root {
   color-scheme: light;
-  --bg: #f4f4f2; --surface: #ffffff; --text: #171716; --muted: #686864;
-  --line: #dfdfda; --border-strong: #a9a9a2; --accent: #171716; --accent-soft: #ecece8;
-  --hover: #f0f0ed; --chart: #393937; --green: #2f6552; --green-soft: #e8f0ec;
+  --bg: #f3f2ef; --surface: #fbfaf7; --text: #292824; --muted: #6f6d67;
+  --line: #dedcd6; --border-strong: #aaa79f; --accent: #34332f; --accent-soft: #ebe9e3;
+  --hover: #efede8; --chart: #4b4944; --green: #2f6552; --green-soft: #e8f0ec;
   --orange: #7a5b24; --orange-soft: #f3eee4; --red: #8a4040; --red-soft: #f2e8e8;
-  --focus: #73736e; --hero: #171716; --code-bg: #f1f1ee;
-  --background: #ffffff; --foreground: #171716; --card: #ffffff; --card-foreground: #171716;
-  --popover: #ffffff; --popover-foreground: #171716; --primary: #171716; --primary-foreground: #fafaf8;
-  --secondary: #efefec; --secondary-foreground: #242422; --ui-muted: #f0f0ed; --muted-foreground: #686864;
-  --ui-accent: #e8e8e4; --ui-accent-foreground: #171716;
-  --destructive: #8a4040; --border: #dfdfda; --input: #d4d4cf; --ring: #73736e;
-  --sidebar: #fafaf8; --sidebar-foreground: #171716; --sidebar-primary: #171716;
-  --sidebar-primary-foreground: #fafaf8; --sidebar-accent: #ecece8; --sidebar-accent-foreground: #171716;
-  --sidebar-border: #dfdfda; --sidebar-ring: #73736e; --radius: 0.55rem;
+  --focus: #77746d; --hero: #2b2a26; --code-bg: #efeee9;
+  --background: #fbfaf7; --foreground: #292824; --card: #fbfaf7; --card-foreground: #292824;
+  --popover: #fbfaf7; --popover-foreground: #292824; --primary: #34332f; --primary-foreground: #f7f5f0;
+  --secondary: #eeece7; --secondary-foreground: #34332f; --ui-muted: #efede8; --muted-foreground: #6f6d67;
+  --ui-accent: #e7e4de; --ui-accent-foreground: #292824;
+  --destructive: #8a4040; --border: #dedcd6; --input: #cfcdc6; --ring: #77746d;
+  --sidebar: #f7f6f2; --sidebar-foreground: #292824; --sidebar-primary: #34332f;
+  --sidebar-primary-foreground: #f7f5f0; --sidebar-accent: #ebe9e3; --sidebar-accent-foreground: #292824;
+  --sidebar-border: #dedcd6; --sidebar-ring: #77746d; --radius: 0.55rem;
 }
 :root:root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #0c0c0c; --surface: #151515; --text: #f1f1ee; --muted: #a1a19b;
-  --line: #30302e; --border-strong: #62625d; --accent: #f1f1ee; --accent-soft: #282826;
-  --hover: #20201f; --chart: #c8c8c2; --green: #8fc4ae; --green-soft: #1c342b;
+  --bg: #181816; --surface: #211f1c; --text: #e7e4dc; --muted: #aaa69d;
+  --line: #393732; --border-strong: #66625b; --accent: #e4e1d9; --accent-soft: #302e29;
+  --hover: #2a2824; --chart: #cbc6bb; --green: #8fc4ae; --green-soft: #1c342b;
   --orange: #ddba78; --orange-soft: #382f20; --red: #dfa0a0; --red-soft: #3a2525;
-  --focus: #b4b4ae; --hero: #050505; --code-bg: #101010;
-  --background: #0c0c0c; --foreground: #f1f1ee; --card: #151515; --card-foreground: #f1f1ee;
-  --popover: #191919; --popover-foreground: #f1f1ee; --primary: #f1f1ee; --primary-foreground: #171716;
-  --secondary: #282826; --secondary-foreground: #f1f1ee; --ui-muted: #282826; --muted-foreground: #a1a19b;
-  --ui-accent: #30302e; --ui-accent-foreground: #f1f1ee;
-  --destructive: #dfa0a0; --border: #30302e; --input: #3a3a37; --ring: #9a9a95;
-  --sidebar: #111111; --sidebar-foreground: #f1f1ee; --sidebar-primary: #f1f1ee;
-  --sidebar-primary-foreground: #171716; --sidebar-accent: #282826; --sidebar-accent-foreground: #f1f1ee;
-  --sidebar-border: #30302e; --sidebar-ring: #9a9a95;
+  --focus: #b6b0a5; --hero: #27251f; --code-bg: #1b1a18;
+  --background: #181816; --foreground: #e7e4dc; --card: #211f1c; --card-foreground: #e7e4dc;
+  --popover: #24221e; --popover-foreground: #e7e4dc; --primary: #e4e1d9; --primary-foreground: #2c2a26;
+  --secondary: #302e29; --secondary-foreground: #e7e4dc; --ui-muted: #302e29; --muted-foreground: #aaa69d;
+  --ui-accent: #38352f; --ui-accent-foreground: #e7e4dc;
+  --destructive: #dfa0a0; --border: #393732; --input: #45423c; --ring: #aaa49a;
+  --sidebar: #1d1c19; --sidebar-foreground: #e7e4dc; --sidebar-primary: #e4e1d9;
+  --sidebar-primary-foreground: #2c2a26; --sidebar-accent: #302e29; --sidebar-accent-foreground: #e7e4dc;
+  --sidebar-border: #393732; --sidebar-ring: #aaa49a;
 }
