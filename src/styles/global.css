@@ -39,12 +39,12 @@
 @layer base {
   * { @apply border-border outline-ring/50; }
   html { @apply font-sans; }
+  button, input, select, textarea { font: inherit; color: inherit; }
   button:not(:disabled), [role='button']:not(:disabled) { cursor: pointer; }
 }
 
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Geist Variable', 'Microsoft YaHei UI', 'PingFang SC', sans-serif; font-size: 14px; font-weight: 475; line-height: 1.6; }
-button, input, select, textarea { font: inherit; color: inherit; }
 button, select { cursor: pointer; }
 button:not([data-slot]) { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 9px 16px; font-weight: 500; }
 button:not([data-slot]):hover:not(:disabled) { background: var(--hover); border-color: var(--border-strong); }
