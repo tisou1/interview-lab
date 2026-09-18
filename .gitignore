@@ -5,3 +5,5 @@ src/data/generated/
 playwright-report/
 test-results/
 *.local
+
+.codebuddy/
