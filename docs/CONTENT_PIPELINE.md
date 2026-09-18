@@ -19,13 +19,13 @@
 - 解析保留第一个答案小标题之前的正文或代码，并将其作为「核心答案」。后续章节保持原始标题和顺序。
 - 题目 ID 由标题编号决定。元数据不能覆盖 ID、标题或来源信息。
 
-| 元数据字段 | 允许值 |
-|---|---|
-| category | javascript / react / browser / typescript / engineering / coding / architecture |
-| type | theory / coding / debugging / scenario |
-| difficulty | basic / intermediate / advanced |
-| tags | 非空字符串数组 |
-| estimatedMinutes | 大于 0 的数字 |
+| 元数据字段       | 允许值                                                                          |
+| ---------------- | ------------------------------------------------------------------------------- |
+| category         | javascript / react / browser / typescript / engineering / coding / architecture |
+| type             | theory / coding / debugging / scenario                                          |
+| difficulty       | basic / intermediate / advanced                                                 |
+| tags             | 非空字符串数组                                                                  |
+| estimatedMinutes | 大于 0 的数字                                                                   |
 
 代码题仍可归入 JavaScript 或 React 专题，使用 `type: coding` 表示题型。浏览器、TypeScript、工程化的混合源章节通过逐题元数据区分。
 

@@ -7,11 +7,18 @@ import { buildContent, sourceFiles } from './scripts/build-question-data.mjs'
 function contentPlugin(): Plugin {
   return {
     name: 'markdown-question-bank',
-    buildStart() { buildContent() },
+    buildStart() {
+      buildContent()
+    },
     configureServer(server) {
       server.watcher.add(sourceFiles)
-      server.watcher.on('change', (path) => {
-        if (!sourceFiles.some((source: string) => path.replaceAll('\\', '/') === source.replaceAll('\\', '/'))) return
+      server.watcher.on('change', (file) => {
+        if (
+          !sourceFiles.some(
+            (source: string) => file.replaceAll('\\', '/') === source.replaceAll('\\', '/'),
+          )
+        )
+          return
         try {
           buildContent()
           server.ws.send({ type: 'full-reload' })

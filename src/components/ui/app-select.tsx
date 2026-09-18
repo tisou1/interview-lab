@@ -20,12 +20,21 @@ export function AppSelect({
   onValueChange: (value: string) => void
   className?: string
 }) {
-  return <Select value={value || emptyValue} onValueChange={next => onValueChange(next === emptyValue ? '' : next)}>
-    <SelectTrigger aria-label={label} className={className}>
-      <SelectValue />
-    </SelectTrigger>
-    <SelectContent position="popper" align="start">
-      {options.map(option => <SelectItem key={option.value || emptyValue} value={option.value || emptyValue}>{option.label}</SelectItem>)}
-    </SelectContent>
-  </Select>
+  return (
+    <Select
+      value={value || emptyValue}
+      onValueChange={(next) => onValueChange(next === emptyValue ? '' : next)}
+    >
+      <SelectTrigger aria-label={label} className={className}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent position="popper" align="start">
+        {options.map((option) => (
+          <SelectItem key={option.value || emptyValue} value={option.value || emptyValue}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
 }
