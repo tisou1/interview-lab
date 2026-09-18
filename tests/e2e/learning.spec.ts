@@ -1,36 +1,47 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync, writeFileSync } from 'node:fs'
-const key = 'frontend-interview-lab:v1'
+const storageKey = 'frontend-interview-lab:v1'
 
-test('browse, search, reveal, rate, favorite and preserve BrowserRouter history', async ({ page }) => {
-  await page.goto('questions')
+test('browse, search, reveal, rate, favorite and preserve hash route history', async ({ page }) => {
+  await page.goto('#/questions')
   await page.getByRole('textbox', { name: '搜索题目' }).fill('React')
   await expect(page).toHaveURL(/q=React/)
   const link = page.locator('article a').first()
   await link.click()
-  await expect(page).toHaveURL(/\/questions\/\d+/)
+  await expect(page).toHaveURL(/#\/questions\/\d+/)
   await expect(page.getByRole('button', { name: /查看参考答案/ })).toBeVisible()
-  await expect(page.locator('[aria-expanded]')).toHaveCount(0)
+  // 收窄到主内容区：顶栏的主题选择器自身也带 aria-expanded。
+  await expect(page.locator('main [aria-expanded]')).toHaveCount(0)
   await page.getByRole('button', { name: '收藏本题', exact: true }).click()
   await page.getByRole('textbox', { name: '回答草稿', exact: true }).fill('我的 React 回答')
   await page.getByRole('button', { name: /查看参考答案/ }).click()
   await page.getByRole('button', { name: '2 · 模糊' }).click()
   await page.reload()
-  await expect(page.getByRole('textbox', { name: '回答草稿', exact: true })).toHaveValue('我的 React 回答')
-  await expect(page.getByRole('button', { name: '取消收藏本题' })).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByRole('button', { name: '2 · 模糊' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('textbox', { name: '回答草稿', exact: true })).toHaveValue(
+    '我的 React 回答',
+  )
+  await expect(page.getByRole('button', { name: '取消收藏本题' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  await expect(page.getByRole('button', { name: '2 · 模糊' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
   await page.goBack()
   await expect(page.getByRole('textbox', { name: '搜索题目' })).toHaveValue('React')
   await page.goForward()
-  await expect(page).toHaveURL(/\/questions\/\d+/)
+  await expect(page).toHaveURL(/#\/questions\/\d+/)
 })
 
 test('five-question practice restores drafts and requires a rating or skip', async ({ page }) => {
-  await page.goto('practice')
+  await page.goto('#/practice')
   await page.getByRole('button', { name: '开始练习', exact: true }).click()
   await page.getByRole('textbox', { name: '回答草稿', exact: true }).fill('刷新仍在的练习草稿')
   await page.reload()
-  await expect(page.getByRole('textbox', { name: '回答草稿', exact: true })).toHaveValue('刷新仍在的练习草稿')
+  await expect(page.getByRole('textbox', { name: '回答草稿', exact: true })).toHaveValue(
+    '刷新仍在的练习草稿',
+  )
   await page.getByRole('button', { name: /查看参考答案/ }).click()
   await expect(page.getByRole('button', { name: '下一题 →' })).toBeDisabled()
   await page.getByRole('button', { name: '3 · 掌握' }).click()
@@ -43,53 +54,94 @@ test('five-question practice restores drafts and requires a rating or skip', asy
   await expect(page.getByText('这组练习完成了')).toBeVisible()
 })
 
-test('mock hides answers, restores deadline, produces report and queues weak questions', async ({ page }) => {
-  await page.goto('mock')
+test('mock hides answers, restores deadline, produces report and queues weak questions', async ({
+  page,
+}) => {
+  await page.goto('#/mock')
   await page.getByRole('button', { name: '开始模拟面试', exact: true }).click()
   await expect(page.getByRole('textbox', { name: '回答草稿', exact: true })).toBeVisible()
-  const deadline = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!).state.mock.deadline, key)
+  const deadline = await page.evaluate(
+    (key) => JSON.parse(localStorage.getItem(key)!).state.mock.deadline,
+    storageKey,
+  )
   await page.getByRole('button', { name: '不会', exact: true }).click()
   await page.getByRole('button', { name: '待复查', exact: true }).click()
   await expect(page.getByRole('button', { name: /查看参考答案/ })).toHaveCount(0)
-  await expect(page.locator('[aria-expanded]')).toHaveCount(0)
+  // 收窄到主内容区：顶栏的主题选择器自身也带 aria-expanded。
+  await expect(page.locator('main [aria-expanded]')).toHaveCount(0)
   await page.reload()
-  expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)!).state.mock.deadline, key)).toBe(deadline)
-  await expect(page.getByRole('button', { name: '不会', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  expect(
+    await page.evaluate(
+      (key) => JSON.parse(localStorage.getItem(key)!).state.mock.deadline,
+      storageKey,
+    ),
+  ).toBe(deadline)
+  await expect(page.getByRole('button', { name: '不会', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
   await page.getByRole('button', { name: '提前交卷' }).click()
   await page.getByRole('dialog').getByRole('button', { name: '确认交卷', exact: true }).click()
-  await expect(page).toHaveURL(/\/mock\/report\//)
+  await expect(page).toHaveURL(/#\/mock\/report\//)
   await expect(page.getByRole('heading', { name: '逐题对照与自评' })).toBeVisible()
-  const count = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!).state.records.length, key)
+  const count = await page.evaluate(
+    (key) => JSON.parse(localStorage.getItem(key)!).state.records.length,
+    storageKey,
+  )
   await page.getByRole('button', { name: '掌握', exact: true }).first().click()
   await page.getByRole('button', { name: '模糊', exact: true }).first().click()
-  expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)!).state.records.length, key)).toBe(count)
+  expect(
+    await page.evaluate(
+      (key) => JSON.parse(localStorage.getItem(key)!).state.records.length,
+      storageKey,
+    ),
+  ).toBe(count)
   await page.getByText('查看完整题解', { exact: true }).first().click()
-  await expect(page.locator('details[open]').filter({ has: page.getByText('查看完整题解', { exact: true }) }).locator('section').first()).toBeVisible()
+  await expect(
+    page
+      .locator('details[open]')
+      .filter({ has: page.getByText('查看完整题解', { exact: true }) })
+      .locator('section')
+      .first(),
+  ).toBeVisible()
   await page.reload()
   await expect(page.getByRole('heading', { name: '逐题对照与自评' })).toBeVisible()
-  await page.goto('review?status=wrong')
+  await page.goto('#/review?status=wrong')
   await expect(page.locator('article')).toHaveCount(1)
 })
 
 test('elapsed mock automatically submits once after reload', async ({ page }) => {
-  await page.goto('mock')
+  await page.goto('#/mock')
   await page.getByRole('button', { name: '开始模拟面试', exact: true }).click()
   await expect(page.getByRole('textbox', { name: '回答草稿', exact: true })).toBeVisible()
   // Apply elapsed wall time before hydration, after the old page has flushed its clock.
-  await page.addInitScript(key => { const value = JSON.parse(localStorage.getItem(key)!); if (value.state.mock && !value.state.mock.completedAt) { value.state.mock.startedAt = new Date(Date.now() - 60000).toISOString(); value.state.mock.deadline = new Date(Date.now() - 1000).toISOString(); localStorage.setItem(key, JSON.stringify(value)) } }, key)
+  await page.addInitScript((key) => {
+    const value = JSON.parse(localStorage.getItem(key)!)
+    if (value.state.mock && !value.state.mock.completedAt) {
+      value.state.mock.startedAt = new Date(Date.now() - 60000).toISOString()
+      value.state.mock.deadline = new Date(Date.now() - 1000).toISOString()
+      localStorage.setItem(key, JSON.stringify(value))
+    }
+  }, storageKey)
   await page.reload()
-  await expect(page).toHaveURL(/\/mock\/report\//)
+  await expect(page).toHaveURL(/#\/mock\/report\//)
   await page.reload()
-  expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)!).state.history.length, key)).toBe(1)
+  expect(
+    await page.evaluate(
+      (key) => JSON.parse(localStorage.getItem(key)!).state.history.length,
+      storageKey,
+    ),
+  ).toBe(1)
 })
 
 test('export, clear, import and restore data and theme', async ({ page }, testInfo) => {
-  await page.goto('questions/1')
+  await page.goto('#/questions/1')
   await page.getByRole('textbox', { name: '回答草稿', exact: true }).fill('可恢复的草稿')
   await page.getByRole('button', { name: /查看参考答案/ }).click()
   await page.getByRole('button', { name: '3 · 掌握' }).click()
-  await page.goto('settings')
-  await page.getByRole('button', { name: '深色', exact: true }).click()
+  await page.goto('#/settings')
+  await page.getByRole('button', { name: /Vitesse Dark/ }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'vitesse-dark')
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: '导出 JSON 备份' }).click()
   const download = await downloadPromise
@@ -97,70 +149,104 @@ test('export, clear, import and restore data and theme', async ({ page }, testIn
   await download.saveAs(path)
   await page.getByRole('button', { name: '清空学习数据', exact: true }).click()
   await page.getByRole('dialog').getByRole('button', { name: '确认清空' }).click()
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'vitesse-light')
   await page.getByLabel('选择学习数据备份').setInputFiles(path)
   await page.getByRole('dialog').getByRole('button', { name: '确认导入' }).click()
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
-  await page.goto('questions/1')
-  await expect(page.getByRole('textbox', { name: '回答草稿', exact: true })).toHaveValue('可恢复的草稿')
-  await expect(page.getByRole('button', { name: '3 · 掌握' })).toHaveAttribute('aria-pressed', 'true')
-  await page.goto('stats')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'vitesse-dark')
+  await page.goto('#/questions/1')
+  await expect(page.getByRole('textbox', { name: '回答草稿', exact: true })).toHaveValue(
+    '可恢复的草稿',
+  )
+  await expect(page.getByRole('button', { name: '3 · 掌握' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  await page.goto('#/stats')
   await expect(page.getByRole('heading', { name: '看见自己的进步。' })).toBeVisible()
   await page.locator('summary').first().click()
   await expect(page.getByRole('table').first()).toBeVisible()
 })
 
-test('screens, responsive navigation, fullscreen draft and keyboard focus', async ({ page }, testInfo) => {
+test('screens, responsive navigation, fullscreen draft and keyboard focus', async ({
+  page,
+}, testInfo) => {
   const errors: string[] = []
-  page.on('pageerror', error => errors.push(error.message))
+  page.on('pageerror', (error) => errors.push(error.message))
   await page.goto('.')
   await expect(page.getByRole('heading', { name: '每一次思考，都算数。' })).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('dashboard.png'), fullPage: true })
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  )
   if (testInfo.project.name === 'mobile') {
     await page.getByRole('button', { name: '打开导航' }).click()
-    await page.getByRole('dialog').getByRole('link', { name: /全部题库/ }).click()
-    await expect(page).toHaveURL(/\/questions/)
+    await page
+      .getByRole('dialog')
+      .getByRole('link', { name: /全部题库/ })
+      .click()
+    await expect(page).toHaveURL(/#\/questions/)
   }
-  await page.goto('questions/98')
+  await page.goto('#/questions/98')
   await page.getByRole('button', { name: '全屏编辑', exact: true }).click()
   await page.getByRole('textbox', { name: '全屏回答草稿' }).fill('F R 1 2 3')
   await page.keyboard.press('Escape')
   await expect(page.getByRole('button', { name: '全屏编辑', exact: true })).toBeFocused()
-  await expect(page.getByRole('textbox', { name: '回答草稿', exact: true })).toHaveValue('F R 1 2 3')
+  await expect(page.getByRole('textbox', { name: '回答草稿', exact: true })).toHaveValue(
+    'F R 1 2 3',
+  )
   await page.getByRole('button', { name: /查看参考答案/ }).click()
   await page.getByRole('button', { name: '2 · 模糊' }).click()
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  )
   await page.screenshot({ path: testInfo.outputPath('question.png'), fullPage: true })
-  await page.goto('roadmap')
+  await page.goto('#/roadmap')
   await expect(page.getByRole('heading', { name: '12 周，走得更深入。' })).toBeVisible()
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-  await page.goto('settings')
-  await page.getByRole('button', { name: '深色', exact: true }).click()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  )
+  await page.goto('#/settings')
+  const themeTrigger = page.getByRole('button', { name: /^界面主题/ })
+  const themeMenu = page.locator('[data-slot="popover-content"]')
+  await themeTrigger.click()
+  await expect(themeMenu).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  )
+  await themeMenu.getByRole('button', { name: /GitHub Dark/ }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'github-dark')
+  await page.keyboard.press('Escape')
+  await expect(themeMenu).toHaveCount(0)
+  await expect(themeTrigger).toBeFocused()
   await page.goto('.')
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'github-dark')
   await page.screenshot({ path: testInfo.outputPath('dashboard-dark.png'), fullPage: true })
   expect(errors).toEqual([])
 })
 
-test('Markdown edit adds question 116 through the development watcher', async ({ page }, testInfo) => {
+test('Markdown edit adds question 116 through the development watcher', async ({
+  page,
+}, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'Source mutation runs once, serially.')
   const path = 'fe/JavaScript_React原理与实战模拟面试题库.md'
   const original = readFileSync(path, 'utf8')
-  const appended = '\n\n## 116. 自动监听验收题\n\n<!-- question: {"category":"javascript","type":"coding","difficulty":"intermediate","tags":["ParserTest"],"estimatedMinutes":5} -->\n\n这是新增题干。\n\n<details>\n<summary>参考答案</summary>\n\n### 参考答案\n\n只编辑 Markdown 即可加入题库。\n\n</details>\n'
-  await page.goto('questions')
+  const appended =
+    '\n\n## 116. 自动监听验收题\n\n<!-- question: {"category":"javascript","type":"coding","difficulty":"intermediate","tags":["ParserTest"],"estimatedMinutes":5} -->\n\n这是新增题干。\n\n<details>\n<summary>参考答案</summary>\n\n### 参考答案\n\n只编辑 Markdown 即可加入题库。\n\n</details>\n'
+  await page.goto('#/questions')
   try {
     writeFileSync(path, original + appended)
     await expect(async () => {
-      await page.goto('questions?q=ParserTest')
+      await page.goto('#/questions?q=ParserTest')
       await expect(page.getByRole('heading', { name: '自动监听验收题' })).toBeVisible()
     }).toPass({ timeout: 15000 })
     await page.locator('article a').first().click()
-    await expect(page).toHaveURL(/\/interview-lab\/questions\/116$/)
+    await expect(page).toHaveURL(/\/interview-lab\/#\/questions\/116$/)
     await page.getByRole('button', { name: /查看参考答案/ }).click()
     await expect(page.getByText('只编辑 Markdown 即可加入题库。')).toBeVisible()
     await page.getByRole('button', { name: '3 · 掌握' }).click()
-    await page.goto('stats')
+    await page.goto('#/stats')
     await expect(page.getByText('题库共 116 道，统计当前最新自评')).toBeVisible()
-  } finally { writeFileSync(path, original) }
+  } finally {
+    writeFileSync(path, original)
+  }
 })
