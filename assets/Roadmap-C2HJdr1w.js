@@ -1,4 +1,4 @@
-import{G as e,S as t,_ as n,y as r}from"./index-drI_vow9.js";var i={html:`<h1>前端技术深度进阶路线（12 周 · 求职版 · 最终整合）</h1>
+import{b as e,nt as t,rt as n,v as r}from"./index-CG8oSXF_.js";var i={html:`<h1>前端技术深度进阶路线（12 周 · 求职版 · 最终整合）</h1>
 <blockquote>
 <p>适用对象：3–4 年前端经验，以 React / TypeScript 为主，能独立完成常规业务，但知识较零散，希望补足原理、工程深度、问题诊断与技术表达。</p>
 <p>建议投入：每周 12–15 小时。在职可安排工作日每天 1–1.5 小时，周末共 5–7 小时。</p>
@@ -1220,4 +1220,4 @@ Activity
 <p>最终目标不是成为“背过 React 源码的人”，而是成为：</p>
 <blockquote>
 <p>能建立模型、能用证据定位问题、能做工程取舍，也能把这些讲清楚的前端工程师。</p>
-</blockquote>`},a=e();function o(){return(0,a.jsxs)(a.Fragment,{children:[(0,a.jsx)(r,{eyebrow:`A PATH TO DEEPER UNDERSTANDING`,title:`12 周，走得更深入。`,description:`从执行模型到项目架构，把原理学习、动手实践与求职表达连起来。`}),(0,a.jsx)(`article`,{className:`${t.card} ${t.roadmap}`,children:(0,a.jsx)(n,{html:i.html})})]})}export{o as default};
+</blockquote>`},a=t();function o(){return(0,a.jsxs)(a.Fragment,{children:[(0,a.jsx)(e,{eyebrow:`A PATH TO DEEPER UNDERSTANDING`,title:`12 周，走得更深入。`,description:`从执行模型到项目架构，把原理学习、动手实践与求职表达连起来。`}),(0,a.jsx)(`article`,{className:`${n.card} ${n.roadmap}`,children:(0,a.jsx)(r,{html:i.html})})]})}export{o as default};
