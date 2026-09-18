@@ -1,18 +1,19 @@
 {
   "name": "frontend-interview-lab",
-  "private": true,
   "version": "1.0.0",
+  "private": true,
   "type": "module",
-  "packageManager": "pnpm@11.27.0",
-  "engines": {
-    "node": "^24.15.0 || >=26.0.0"
-  },
   "scripts": {
     "dev": "vite",
     "content": "node scripts/build-question-data.mjs",
     "typecheck": "tsc --noEmit",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "check": "pnpm lint && pnpm format:check && pnpm typecheck",
     "build": "pnpm content && pnpm typecheck && vite build && node scripts/check-budget.mjs",
-    "build:vercel":"pnpm content && pnpm typecheck && vite build --base=/ && node scripts/check-budget.mjs",   
+    "build:vercel": "pnpm content && pnpm typecheck && vite build --base=/ && node scripts/check-budget.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test",
@@ -44,6 +45,8 @@
     "@vitejs/plugin-react": "^6.1.1",
     "gh-pages": "^6.3.0",
     "jsdom": "^30.0.1",
+    "oxfmt": "0.68.0",
+    "oxlint": "1.83.0",
     "rehype-raw": "^7.0.0",
     "rehype-sanitize": "^6.0.0",
     "rehype-stringify": "^10.0.1",
@@ -56,5 +59,9 @@
     "unified": "^11.0.5",
     "vite": "^8.3.0",
     "vitest": "^5.0.0"
-  }
+  },
+  "engines": {
+    "node": "^24.15.0 || >=26.0.0"
+  },
+  "packageManager": "pnpm@11.27.0"
 }
