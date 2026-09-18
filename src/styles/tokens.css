@@ -1,32 +1,245 @@
+/* 主题体系：
+   1. 「调色板层」按主题声明（默认主题即未设置 data-theme 时的兜底）；
+   2. 「语义层」只在 :root 声明一次并引用调色板，切主题只需替换调色板变量。
+   所有前景色都按 ≥4.5:1 与各自背景核对过，重点保证弱化文本与强调色可读。*/
+
+:root:root {
+  --radius: 0.55rem;
+
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --popover: var(--surface);
+  --popover-foreground: var(--text);
+  --primary: var(--accent-strong);
+  --primary-foreground: var(--accent-strong-fg);
+  --secondary: var(--accent-soft);
+  --secondary-foreground: var(--text);
+  --ui-muted: var(--hover);
+  --muted-foreground: var(--muted);
+  --ui-accent: var(--accent-soft);
+  --ui-accent-foreground: var(--text);
+  --destructive: var(--red);
+  --border: var(--line);
+  --input: var(--border-strong);
+  --ring: var(--focus);
+  --sidebar: var(--surface-sunken);
+  --sidebar-foreground: var(--text);
+  --sidebar-primary: var(--accent-strong);
+  --sidebar-primary-foreground: var(--accent-strong-fg);
+  --sidebar-accent: var(--accent-soft);
+  --sidebar-accent-foreground: var(--text);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--focus);
+}
+
+/* 默认主题：Vitesse Light */
 :root:root {
   color-scheme: light;
-  --bg: #f3f2ef; --surface: #fbfaf7; --text: #292824; --muted: #6f6d67;
-  --line: #dedcd6; --border-strong: #aaa79f; --accent: #34332f; --accent-soft: #ebe9e3;
-  --hover: #efede8; --chart: #4b4944; --green: #2f6552; --green-soft: #e8f0ec;
-  --orange: #7a5b24; --orange-soft: #f3eee4; --red: #8a4040; --red-soft: #f2e8e8;
-  --focus: #77746d; --hero: #2b2a26; --code-bg: #efeee9;
-  --background: #fbfaf7; --foreground: #292824; --card: #fbfaf7; --card-foreground: #292824;
-  --popover: #fbfaf7; --popover-foreground: #292824; --primary: #34332f; --primary-foreground: #f7f5f0;
-  --secondary: #eeece7; --secondary-foreground: #34332f; --ui-muted: #efede8; --muted-foreground: #6f6d67;
-  --ui-accent: #e7e4de; --ui-accent-foreground: #292824;
-  --destructive: #8a4040; --border: #dedcd6; --input: #cfcdc6; --ring: #77746d;
-  --sidebar: #f7f6f2; --sidebar-foreground: #292824; --sidebar-primary: #34332f;
-  --sidebar-primary-foreground: #f7f5f0; --sidebar-accent: #ebe9e3; --sidebar-accent-foreground: #292824;
-  --sidebar-border: #dedcd6; --sidebar-ring: #77746d; --radius: 0.55rem;
+  --bg: #f9f8f5;
+  --surface: #ffffff;
+  --surface-sunken: #f4f2ed;
+  --text: #393a34;
+  --muted: #6f6a60;
+  --line: #e6e2da;
+  --border-strong: #b6b0a4;
+  --hover: #f1eee8;
+  --accent: #1e7a5f;
+  --accent-strong: #176b54;
+  --accent-strong-fg: #ffffff;
+  --accent-soft: #e3efe9;
+  --green: #2f7a4f;
+  --green-soft: #e6f1e9;
+  --orange: #95601d;
+  --orange-soft: #f6eee1;
+  --red: #ad342b;
+  --red-soft: #f9e9e7;
+  --focus: #1e7a5f;
+  --chart: #4c6a5e;
+  --code-bg: #f1efe9;
+  --hero: #1f2b26;
+  --hero-fg: #f3f6f2;
+  --hero-muted: #b6c4bc;
+  --hero-btn-bg: #e6efe8;
+  --hero-btn-fg: #1f2b26;
+  --hero-grid: #ffffff1a;
+  --hero-ring: #5d7268;
+  --hero-label-bg: #26332d;
+  --hero-label-border: #4e6259;
 }
-:root:root[data-theme='dark'] {
+
+/* Vitesse Dark */
+:root:root[data-theme='vitesse-dark'] {
   color-scheme: dark;
-  --bg: #181816; --surface: #211f1c; --text: #e7e4dc; --muted: #aaa69d;
-  --line: #393732; --border-strong: #66625b; --accent: #e4e1d9; --accent-soft: #302e29;
-  --hover: #2a2824; --chart: #cbc6bb; --green: #8fc4ae; --green-soft: #1c342b;
-  --orange: #ddba78; --orange-soft: #382f20; --red: #dfa0a0; --red-soft: #3a2525;
-  --focus: #b6b0a5; --hero: #27251f; --code-bg: #1b1a18;
-  --background: #181816; --foreground: #e7e4dc; --card: #211f1c; --card-foreground: #e7e4dc;
-  --popover: #24221e; --popover-foreground: #e7e4dc; --primary: #e4e1d9; --primary-foreground: #2c2a26;
-  --secondary: #302e29; --secondary-foreground: #e7e4dc; --ui-muted: #302e29; --muted-foreground: #aaa69d;
-  --ui-accent: #38352f; --ui-accent-foreground: #e7e4dc;
-  --destructive: #dfa0a0; --border: #393732; --input: #45423c; --ring: #aaa49a;
-  --sidebar: #1d1c19; --sidebar-foreground: #e7e4dc; --sidebar-primary: #e4e1d9;
-  --sidebar-primary-foreground: #2c2a26; --sidebar-accent: #302e29; --sidebar-accent-foreground: #e7e4dc;
-  --sidebar-border: #393732; --sidebar-ring: #aaa49a;
+  --bg: #121212;
+  --surface: #1e1e1e;
+  --surface-sunken: #181818;
+  --text: #dbd7ca;
+  --muted: #8f8a7c;
+  --line: #2c2c2c;
+  --border-strong: #4d4d48;
+  --hover: #262626;
+  --accent: #4d9375;
+  --accent-strong: #3f8068;
+  --accent-strong-fg: #f2f7f4;
+  --accent-soft: #1d2e27;
+  --green: #6cb08c;
+  --green-soft: #1d2e27;
+  --orange: #dfae72;
+  --orange-soft: #322a1d;
+  --red: #e08585;
+  --red-soft: #33201f;
+  --focus: #4d9375;
+  --chart: #b7b2a3;
+  --code-bg: #1b1b1b;
+  --hero: #1b2320;
+  --hero-fg: #e8ede9;
+  --hero-muted: #9aa79f;
+  --hero-btn-bg: #3f8068;
+  --hero-btn-fg: #f2f7f4;
+  --hero-grid: #ffffff12;
+  --hero-ring: #3f5c50;
+  --hero-label-bg: #202a26;
+  --hero-label-border: #37504a;
+}
+
+/* GitHub Light */
+:root:root[data-theme='github-light'] {
+  color-scheme: light;
+  --bg: #f6f8fa;
+  --surface: #ffffff;
+  --surface-sunken: #eef1f4;
+  --text: #1f2328;
+  --muted: #59636e;
+  --line: #d1d9e0;
+  --border-strong: #aeb8c2;
+  --hover: #f3f5f7;
+  --accent: #0969da;
+  --accent-strong: #0969da;
+  --accent-strong-fg: #ffffff;
+  --accent-soft: #ddf4ff;
+  --green: #1a7f37;
+  --green-soft: #dafbe1;
+  --orange: #9a6700;
+  --orange-soft: #fff8c5;
+  --red: #cf222e;
+  --red-soft: #ffebe9;
+  --focus: #0969da;
+  --chart: #57606a;
+  --code-bg: #f6f8fa;
+  --hero: #24292f;
+  --hero-fg: #ffffff;
+  --hero-muted: #b1bac4;
+  --hero-btn-bg: #f6f8fa;
+  --hero-btn-fg: #24292f;
+  --hero-grid: #ffffff17;
+  --hero-ring: #57606a;
+  --hero-label-bg: #30363d;
+  --hero-label-border: #57606a;
+}
+
+/* GitHub Dark */
+:root:root[data-theme='github-dark'] {
+  color-scheme: dark;
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface-sunken: #010409;
+  --text: #e6edf3;
+  --muted: #9198a1;
+  --line: #30363d;
+  --border-strong: #59636e;
+  --hover: #1c2128;
+  --accent: #58a6ff;
+  --accent-strong: #1f6feb;
+  --accent-strong-fg: #ffffff;
+  --accent-soft: #132340;
+  --green: #3fb950;
+  --green-soft: #12261e;
+  --orange: #d29922;
+  --orange-soft: #2b2413;
+  --red: #f85149;
+  --red-soft: #2d1618;
+  --focus: #58a6ff;
+  --chart: #c9d1d9;
+  --code-bg: #161b22;
+  --hero: #131a24;
+  --hero-fg: #e6edf3;
+  --hero-muted: #9198a1;
+  --hero-btn-bg: #1f6feb;
+  --hero-btn-fg: #ffffff;
+  --hero-grid: #ffffff10;
+  --hero-ring: #2f5b96;
+  --hero-label-bg: #1a2230;
+  --hero-label-border: #35507a;
+}
+
+/* Nord */
+:root:root[data-theme='nord-dark'] {
+  color-scheme: dark;
+  --bg: #2e3440;
+  --surface: #3b4252;
+  --surface-sunken: #292e39;
+  --text: #eceff4;
+  --muted: #b6bfd0;
+  --line: #434c5e;
+  --border-strong: #6d7a94;
+  --hover: #38404f;
+  --accent: #88c0d0;
+  --accent-strong: #88c0d0;
+  --accent-strong-fg: #2e3440;
+  --accent-soft: #3b4a56;
+  --green: #a3be8c;
+  --green-soft: #37423a;
+  --orange: #ebcb8b;
+  --orange-soft: #414034;
+  --red: #dda7ad;
+  --red-soft: #42353a;
+  --focus: #88c0d0;
+  --chart: #d8dee9;
+  --code-bg: #353c4a;
+  --hero: #272c36;
+  --hero-fg: #eceff4;
+  --hero-muted: #aab4c8;
+  --hero-btn-bg: #88c0d0;
+  --hero-btn-fg: #2e3440;
+  --hero-grid: #ffffff10;
+  --hero-ring: #5e81ac;
+  --hero-label-bg: #313845;
+  --hero-label-border: #5e81ac;
+}
+
+/* Catppuccin Mocha */
+:root:root[data-theme='catppuccin-mocha'] {
+  color-scheme: dark;
+  --bg: #1e1e2e;
+  --surface: #313244;
+  --surface-sunken: #181825;
+  --text: #cdd6f4;
+  --muted: #a6adc8;
+  --line: #45475a;
+  --border-strong: #6c7086;
+  --hover: #29293d;
+  --accent: #cba6f7;
+  --accent-strong: #cba6f7;
+  --accent-strong-fg: #1e1e2e;
+  --accent-soft: #332e4d;
+  --green: #a6e3a1;
+  --green-soft: #2a3a2c;
+  --orange: #fab387;
+  --orange-soft: #3f3129;
+  --red: #f38ba8;
+  --red-soft: #3d2933;
+  --focus: #cba6f7;
+  --chart: #bac2de;
+  --code-bg: #181825;
+  --hero: #23233a;
+  --hero-fg: #cdd6f4;
+  --hero-muted: #a6adc8;
+  --hero-btn-bg: #cba6f7;
+  --hero-btn-fg: #1e1e2e;
+  --hero-grid: #ffffff10;
+  --hero-ring: #7f849c;
+  --hero-label-bg: #2b2b45;
+  --hero-label-border: #5b5b7d;
 }
