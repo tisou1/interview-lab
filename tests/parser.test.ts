@@ -4,22 +4,70 @@ import { readFileSync } from 'node:fs'
 import { parseQuestions, sourceFiles } from '../scripts/build-question-data.mjs'
 const meta =
   '<!-- question: {"category":"javascript","type":"coding","difficulty":"intermediate","tags":["Promise"],"estimatedMinutes":10} -->'
-const fixture = (answer = '### 参考答案\n\n正确答案。', id = 116) =>
+const fixture = (answer = '### 参考答案\n\n正确答案。', id = 900) =>
   `## ${id}. 测试题\n\n${meta}\n\n题干。\n\n<details>\n<summary>答案</summary>\n\n${answer}\n\n</details>\n`
+
+/** 改版前已发布的编号必须保留，否则按 ID 记录的学习进度会失去对应关系。 */
+const LEGACY_IDS = Array.from({ length: 115 }, (_, index) => index + 1)
+
+/** 答案小节的约定名称，新增题目必须复用其中之一。 */
+const SECTION_TITLES = new Set([
+  '核心答案',
+  '原理与示例',
+  '边界与易错点',
+  '追问',
+  '参考实现',
+  '复杂度与取舍',
+  '设计框架',
+  '设计要点与边界',
+  '排查步骤',
+  '评分点',
+])
+
 describe('Markdown source pipeline', () => {
-  it('preserves all 115 stable IDs and unheaded code in the real source', () => {
+  it('preserves the legacy IDs and keeps every question valid', () => {
     const questions = parseQuestions(readFileSync(sourceFiles[0], 'utf8'))
-    expect(questions).toHaveLength(115)
-    expect(new Set(questions.map((q) => q.id)).size).toBe(115)
-    expect(questions.map((q) => q.id)).toEqual(Array.from({ length: 115 }, (_, i) => i + 1))
-    expect(questions.find((q) => q.id === 96)?.answerSections[0].html).toContain('reduceRight')
-    expect(questions.find((q) => q.id === 98)?.promptHtml).toContain('setPending')
-    expect(questions.every((q) => q.source.line > 0 && q.answerSections.length > 0)).toBe(true)
+    const ids = questions.map((question) => question.id)
+
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(questions.length).toBeGreaterThanOrEqual(150)
+    for (const id of LEGACY_IDS) expect(ids).toContain(id)
+    expect(ids.filter((id) => id >= 116)).toHaveLength(questions.length - LEGACY_IDS.length)
+    expect(questions.find((question) => question.id === 96)?.answerSections[0].html).toContain(
+      'reduceRight',
+    )
+    expect(questions.find((question) => question.id === 98)?.promptHtml).toContain('setPending')
+    expect(questions.every((question) => question.source.line > 0)).toBe(true)
+  })
+  it('keeps answer sections non-empty, consistently named and free of broken code blocks', () => {
+    const questions = parseQuestions(readFileSync(sourceFiles[0], 'utf8'))
+
+    for (const question of questions) {
+      expect(question.answerSections.length, `Q${question.id} 缺少答案小节`).toBeGreaterThan(0)
+
+      for (const section of question.answerSections) {
+        expect(section.title.trim(), `Q${question.id} 小节标题为空`).not.toBe('')
+        expect(
+          SECTION_TITLES.has(section.title),
+          `Q${question.id} 使用了未约定的小节名：${section.title}`,
+        ).toBe(true)
+        expect(section.html.replace(/<[^>]*>|\s/g, ''), `Q${question.id} 存在空小节`).not.toBe('')
+        // 代码块内出现块级标签说明 HTML 块被空行截断，同一段代码会被渲染成多块
+        const preBlocks = section.html.match(/<pre>[\s\S]*?<\/pre>/g) ?? []
+        expect(
+          preBlocks.every((block: string) => !/<(p|div|ul|ol|li|h[1-6]|table)\b/.test(block)),
+          `Q${question.id} 的代码块结构被破坏`,
+        ).toBe(true)
+      }
+    }
   })
   it('accepts a new Markdown question without changing application code', () => {
-    const questions = parseQuestions(readFileSync(sourceFiles[0], 'utf8') + '\n\n' + fixture())
-    expect(questions).toHaveLength(116)
-    expect(questions.at(-1)?.answerSections[0].html).toContain('正确答案')
+    const source = readFileSync(sourceFiles[0], 'utf8')
+    const before = parseQuestions(source)
+    const after = parseQuestions(source + '\n\n' + fixture())
+
+    expect(after).toHaveLength(before.length + 1)
+    expect(after.at(-1)?.answerSections[0].html).toContain('正确答案')
   })
   it('supports HTML and Markdown answer headings and preserves introductory code', () => {
     const question = parseQuestions(
@@ -53,7 +101,7 @@ describe('Markdown source pipeline', () => {
     [fixture().replace('"intermediate"', '"invalid"'), '难度'],
     [fixture().replace('</details>', ''), '结构'],
     [fixture(''), '不能为空'],
-    [fixture().replace('116. 测试题', '116. '), '标题'],
+    [fixture().replace('900. 测试题', '900. '), '标题'],
   ])('rejects invalid content with file and line diagnostics', (source, message) => {
     expect(() => parseQuestions(source, 'bank.md')).toThrow(new RegExp(`bank.md:\\d+:.*${message}`))
   })

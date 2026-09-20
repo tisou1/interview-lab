@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createProgress } from './progress.mjs'
 import { unified } from 'unified'
 import remarkParse from 'remark-parse'
 import remarkGfm from 'remark-gfm'
@@ -55,15 +56,22 @@ export function renderMarkdown(markdown) {
   return html(safeTree(markdown).children)
 }
 
-export function parseQuestions(markdown, filename = 'questions.md') {
+// 题目标题格式，先扫一遍得到总数，才能在解析过程中报告进度。
+const questionHeading = /^(\d+)\.\s*(.*)$/
+
+export function parseQuestions(markdown, filename = 'questions.md', onProgress) {
   const tree = reader.parse(markdown)
   const boundaries = tree.children.filter((node) => node.type === 'heading' && node.depth <= 2)
+  const totalQuestions = boundaries.filter((node) => {
+    const match = node.depth === 2 && questionHeading.exec(plain(node))
+    return Boolean(match) && Number(match[1]) !== 0
+  }).length
   const result = []
   const seen = new Set()
   for (let index = 0; index < boundaries.length; index++) {
     const heading = boundaries[index]
     const label = plain(heading)
-    const match = heading.depth === 2 && /^(\d+)\.\s*(.*)$/.exec(label)
+    const match = heading.depth === 2 && questionHeading.exec(label)
     if (!match || Number(match[1]) === 0) continue
     const id = Number(match[1])
     const title = match[2].trim()
@@ -165,25 +173,39 @@ export function parseQuestions(markdown, filename = 'questions.md') {
       answerSections,
       source: { file: filename, line: heading.position.start.line },
     })
+    onProgress?.(result.length, totalQuestions)
   }
   if (!result.length) throw new Error(`${filename}:1: 未找到题目`)
   return result
 }
 
-export function buildContent() {
+export function buildContent({ onProgress } = {}) {
+  const report = onProgress ?? (() => {})
   // Finish all parsing before replacing generated files, so malformed edits retain the last valid data.
+  report('读取源文件', 0, sourceFiles.length)
+  const questionSource = fs.readFileSync(sourceFiles[0], 'utf8')
+  const roadmapSource = fs.readFileSync(sourceFiles[1], 'utf8')
+  report('读取源文件', sourceFiles.length, sourceFiles.length)
   const questions = parseQuestions(
-    fs.readFileSync(sourceFiles[0], 'utf8'),
+    questionSource,
     'fe/' + path.basename(sourceFiles[0]),
+    (current, total) => report('解析题目', current, total),
   )
-  const roadmap = renderMarkdown(fs.readFileSync(sourceFiles[1], 'utf8'))
+  report('渲染学习路线', 0, 1)
+  const roadmap = renderMarkdown(roadmapSource)
+  report('渲染学习路线', 1, 1)
   const output = path.join(root, 'src/data/generated')
   fs.mkdirSync(output, { recursive: true })
+  // index.json、各分类文件与 roadmap.json 的总数。
+  const outputFiles = 1 + categories.length + 1
+  let written = 0
   const write = (name, value) => {
     const text = JSON.stringify(value)
     const target = path.join(output, name + '.json')
     if (!fs.existsSync(target) || fs.readFileSync(target, 'utf8') !== text)
       fs.writeFileSync(target, text)
+    written += 1
+    report('写入生成数据', written, outputFiles)
   }
   write(
     'index',
@@ -202,5 +224,12 @@ export function buildContent() {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  console.log(`题库构建完成：${buildContent().length} 道题`)
+  const progress = createProgress()
+  try {
+    const questions = buildContent({ onProgress: progress.update })
+    progress.done(`题库构建完成：${questions.length} 道题`)
+  } catch (error) {
+    progress.fail(`题库构建失败：${error.message}`)
+    process.exitCode = 1
+  }
 }

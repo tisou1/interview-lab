@@ -224,14 +224,15 @@ test('screens, responsive navigation, fullscreen draft and keyboard focus', asyn
   expect(errors).toEqual([])
 })
 
-test('Markdown edit adds question 116 through the development watcher', async ({
+test('Markdown edit adds a question through the development watcher', async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'Source mutation runs once, serially.')
   const path = 'fe/JavaScript_React原理与实战模拟面试题库.md'
   const original = readFileSync(path, 'utf8')
-  const appended =
-    '\n\n## 116. 自动监听验收题\n\n<!-- question: {"category":"javascript","type":"coding","difficulty":"intermediate","tags":["ParserTest"],"estimatedMinutes":5} -->\n\n这是新增题干。\n\n<details>\n<summary>参考答案</summary>\n\n### 参考答案\n\n只编辑 Markdown 即可加入题库。\n\n</details>\n'
+  // 编号必须取自当前题库的下一个未占用值，避免新增题目后与本用例冲突
+  const nextId = Math.max(...[...original.matchAll(/^## (\d+)\. /gm)].map((m) => Number(m[1]))) + 1
+  const appended = `\n\n## ${nextId}. 自动监听验收题\n\n<!-- question: {"category":"javascript","type":"coding","difficulty":"intermediate","tags":["ParserTest"],"estimatedMinutes":5} -->\n\n这是新增题干。\n\n<details>\n<summary>参考答案</summary>\n\n只编辑 Markdown 即可加入题库。\n\n</details>\n`
   await page.goto('#/questions')
   try {
     writeFileSync(path, original + appended)
@@ -240,12 +241,12 @@ test('Markdown edit adds question 116 through the development watcher', async ({
       await expect(page.getByRole('heading', { name: '自动监听验收题' })).toBeVisible()
     }).toPass({ timeout: 15000 })
     await page.locator('article a').first().click()
-    await expect(page).toHaveURL(/\/interview-lab\/#\/questions\/116$/)
+    await expect(page).toHaveURL(new RegExp(`/interview-lab/#/questions/${nextId}$`))
     await page.getByRole('button', { name: /查看参考答案/ }).click()
     await expect(page.getByText('只编辑 Markdown 即可加入题库。')).toBeVisible()
     await page.getByRole('button', { name: '3 · 掌握' }).click()
     await page.goto('#/stats')
-    await expect(page.getByText('题库共 116 道，统计当前最新自评')).toBeVisible()
+    await expect(page.getByText(`题库共 ${nextId} 道，统计当前最新自评`)).toBeVisible()
   } finally {
     writeFileSync(path, original)
   }
