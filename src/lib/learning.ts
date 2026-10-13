@@ -163,6 +163,15 @@ export function filterQuestions(
         : a.id - b.id,
   )
 }
+// 分页页码窗口：短列表全量展示，长列表两侧保留首尾页，中间以 gap 折叠。
+export function pageWindow(current: number, totalPages: number): (number | 'gap')[] {
+  const total = Math.max(1, totalPages)
+  const page = Math.min(Math.max(1, current), total)
+  if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1)
+  if (page <= 3) return [1, 2, 3, 4, 'gap', total]
+  if (page >= total - 2) return [1, 'gap', total - 3, total - 2, total - 1, total]
+  return [1, 'gap', page - 1, page, page + 1, 'gap', total]
+}
 export function dailyStats(records: StudyRecord[], days: number, now = new Date()) {
   return Array.from({ length: days }, (_, index) => {
     const date = localDate(addDays(now, index - days + 1))

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { questions } from '../data/questions'
 import { categoryNames, difficultyNames, typeNames } from '../types'
-import { filterQuestions } from '../lib/learning'
+import { filterQuestions, pageWindow } from '../lib/learning'
 import { useLearning } from '../storage/store'
 import { Badge, ConfirmDialog, Empty, Icon, PageHeader } from '../components/ui'
 import { AppSelect } from '@/components/ui/app-select'
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import styles from '../styles/App.module.css'
 
 const tags = [...new Set(questions.flatMap((q) => q.tags))].sort()
+const PAGE_SIZE = 20
 export default function Questions({ review = false }: { review?: boolean }) {
   const [params, setParams] = useSearchParams()
   const [query, setQuery] = useState(params.get('q') ?? '')
@@ -26,11 +27,20 @@ export default function Questions({ review = false }: { review?: boolean }) {
   const effective = new URLSearchParams(params)
   if (review && !effective.get('status')) effective.set('status', 'due')
   const result = filterQuestions(questions, effective, progress)
+  // 页码保存在 URL（可分享、可后退）；非法或超出范围的页码回退到有效范围。
+  const totalPages = Math.max(1, Math.ceil(result.length / PAGE_SIZE))
+  const current = Math.min(
+    Math.max(1, Number.parseInt(params.get('page') ?? '1', 10) || 1),
+    totalPages,
+  )
+  const items = result.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE)
   const update = useCallback(
     (key: string, value: string) => {
       const next = new URLSearchParams(params)
       if (value) next.set(key, value)
       else next.delete(key)
+      // 筛选、排序或视图变化会改变结果集，翻页状态同步回到第一页。
+      if (key !== 'page') next.delete('page')
       setParams(next, { replace: key === 'q' })
     },
     [params, setParams],
@@ -199,33 +209,79 @@ export default function Questions({ review = false }: { review?: boolean }) {
         </div>
       </div>
       {result.length ? (
-        <div
-          className={`${styles.questionList} ${params.get('view') === 'compact' ? styles.compact : ''}`}
-        >
-          {result.map((question) => (
-            <article className={styles.questionRow} key={question.id}>
-              <span className={styles.questionNumber}>{String(question.id).padStart(3, '0')}</span>
-              <Link className={styles.questionLink} to={`/questions/${question.id}`}>
-                <h3>{question.title}</h3>
-                <div className={styles.questionMeta}>
-                  <span>{categoryNames[question.category]}</span>
-                  <span>{typeNames[question.type]}</span>
-                  <span>{difficultyNames[question.difficulty]}</span>
-                  <span>{question.estimatedMinutes} 分钟</span>
-                </div>
-              </Link>
-              <Badge mastery={progress[question.id]?.mastery} />
-              <button
-                className={`${styles.iconButton} ${progress[question.id]?.favorite ? styles.favorite : ''}`}
-                aria-label={`${progress[question.id]?.favorite ? '取消收藏' : '收藏'}题目 ${question.id}`}
-                aria-pressed={!!progress[question.id]?.favorite}
-                onClick={() => favorite(question.id)}
-              >
-                <Icon name="star" size={17} />
-              </button>
-            </article>
-          ))}
-        </div>
+        <>
+          <div
+            className={`${styles.questionList} ${params.get('view') === 'compact' ? styles.compact : ''}`}
+          >
+            {items.map((question) => (
+              <article className={styles.questionRow} key={question.id}>
+                <span className={styles.questionNumber}>
+                  {String(question.id).padStart(3, '0')}
+                </span>
+                <Link className={styles.questionLink} to={`/questions/${question.id}`}>
+                  <h3>{question.title}</h3>
+                  <div className={styles.questionMeta}>
+                    <span>{categoryNames[question.category]}</span>
+                    <span>{typeNames[question.type]}</span>
+                    <span>{difficultyNames[question.difficulty]}</span>
+                    <span>{question.estimatedMinutes} 分钟</span>
+                  </div>
+                </Link>
+                <Badge mastery={progress[question.id]?.mastery} />
+                <button
+                  className={`${styles.iconButton} ${progress[question.id]?.favorite ? styles.favorite : ''}`}
+                  aria-label={`${progress[question.id]?.favorite ? '取消收藏' : '收藏'}题目 ${question.id}`}
+                  aria-pressed={!!progress[question.id]?.favorite}
+                  onClick={() => favorite(question.id)}
+                >
+                  <Icon name="star" size={17} />
+                </button>
+              </article>
+            ))}
+          </div>
+          {totalPages > 1 && (
+            <nav className={styles.pagination} aria-label="题目列表分页">
+              <span className={styles.muted}>
+                第 {(current - 1) * PAGE_SIZE + 1}–{Math.min(current * PAGE_SIZE, result.length)} 题
+                · 共 {result.length} 题
+              </span>
+              <div className={styles.pageButtons}>
+                <button
+                  className={styles.iconButton}
+                  aria-label="上一页"
+                  disabled={current === 1}
+                  onClick={() => update('page', String(current - 1))}
+                >
+                  <Icon name="chevronLeft" size={16} />
+                </button>
+                {pageWindow(current, totalPages).map((page, index) =>
+                  typeof page === 'number' ? (
+                    <button
+                      key={page}
+                      className={`${styles.tab} ${page === current ? styles.selected : ''}`}
+                      aria-current={page === current ? 'page' : undefined}
+                      onClick={() => update('page', String(page))}
+                    >
+                      {page}
+                    </button>
+                  ) : (
+                    <span key={`gap-${index}`} className={styles.pageEllipsis} aria-hidden="true">
+                      …
+                    </span>
+                  ),
+                )}
+                <button
+                  className={styles.iconButton}
+                  aria-label="下一页"
+                  disabled={current === totalPages}
+                  onClick={() => update('page', String(current + 1))}
+                >
+                  <Icon name="chevronRight" size={16} />
+                </button>
+              </div>
+            </nav>
+          )}
+        </>
       ) : (
         <Empty
           title={

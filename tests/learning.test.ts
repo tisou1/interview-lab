@@ -8,6 +8,7 @@ import {
   drawQuestions,
   filterQuestions,
   localDate,
+  pageWindow,
 } from '../src/lib/learning'
 import {
   exportData,
@@ -57,6 +58,19 @@ describe('review scheduling and selection', () => {
       ),
     ).toEqual([reactQuestion.id])
     expect(filterQuestions(questions, new URLSearchParams('q=不存在的关键词'), p)).toHaveLength(0)
+  })
+})
+describe('pagination window', () => {
+  it('lists every page for short results and clamps out-of-range pages', () => {
+    expect(pageWindow(2, 5)).toEqual([1, 2, 3, 4, 5])
+    expect(pageWindow(0, 5)).toEqual([1, 2, 3, 4, 5])
+    expect(pageWindow(9, 5)).toEqual([1, 2, 3, 4, 5])
+    expect(pageWindow(1, 0)).toEqual([1])
+  })
+  it('keeps first and last pages and collapses the middle with gaps', () => {
+    expect(pageWindow(1, 12)).toEqual([1, 2, 3, 4, 'gap', 12])
+    expect(pageWindow(6, 12)).toEqual([1, 'gap', 5, 6, 7, 'gap', 12])
+    expect(pageWindow(12, 12)).toEqual([1, 'gap', 9, 10, 11, 12])
   })
 })
 describe('persistent learning records', () => {

@@ -684,6 +684,28 @@
 .compact .questionMeta {
   display: none;
 }
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+.pageButtons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.pageButtons .tab {
+  min-width: 35px;
+  padding-inline: 10px;
+}
+.pageEllipsis {
+  color: var(--muted);
+  padding: 0 2px;
+}
 .favorite {
   color: var(--orange);
 }
