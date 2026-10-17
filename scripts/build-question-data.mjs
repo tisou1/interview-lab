@@ -8,6 +8,7 @@ import remarkGfm from 'remark-gfm'
 import remarkRehype from 'remark-rehype'
 import rehypeRaw from 'rehype-raw'
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
+import rehypeHighlight from 'rehype-highlight'
 import rehypeStringify from 'rehype-stringify'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -34,6 +35,8 @@ const renderer = unified()
     ...defaultSchema,
     attributes: { ...defaultSchema.attributes, code: [['className', /^language-./]], '*': [] },
   })
+  // 清洗之后再高亮：只把已过滤的代码文本转成带 hljs 类名的 span，不引入新的不可信节点。
+  .use(rehypeHighlight)
 const writer = unified().use(rehypeStringify)
 const plain = (node) => node.value ?? (node.children ?? []).map(plain).join('')
 const html = (children) => writer.stringify({ type: 'root', children })

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import QuestionWorkspace from '../src/components/QuestionWorkspace'
@@ -6,6 +6,12 @@ import { questions } from '../src/data/questions'
 import { useLearning } from '../src/storage/store'
 import { emptyData } from '../src/storage/validation'
 import type { Question } from '../src/types'
+
+vi.mock('../src/components/CodeEditor', () => ({
+  default: ({ ariaLabel }: { ariaLabel: string }) => (
+    <div role="textbox" aria-label={ariaLabel} data-testid="code-editor" />
+  ),
+}))
 const question: Question = {
   ...questions[0],
   promptHtml: '<p>独立思考题干</p>',
@@ -59,5 +65,38 @@ describe('active recall interaction', () => {
     expect(screen.queryByRole('button', { name: /查看参考答案/ })).not.toBeInTheDocument()
     fireEvent.keyDown(document.body, { code: 'Space', key: ' ' })
     expect(screen.queryByText('核心答案正文')).not.toBeInTheDocument()
+  })
+})
+function renderWith(candidate: Question) {
+  function Frame() {
+    const item = useLearning((s) => s.details[candidate.id])
+    return (
+      <MemoryRouter>
+        <QuestionWorkspace
+          question={candidate}
+          item={item}
+          context={{ kind: 'detail', questionId: candidate.id }}
+        />
+      </MemoryRouter>
+    )
+  }
+  return render(<Frame />)
+}
+describe('code input mode', () => {
+  it('defaults to the code editor for coding and debugging questions', async () => {
+    renderWith({ ...question, type: 'coding' })
+    expect((await screen.findAllByTestId('code-editor')).length).toBeGreaterThan(0)
+  })
+  it('defaults to the plain textarea for theory questions', () => {
+    renderWith(question)
+    expect(screen.queryAllByTestId('code-editor')).toHaveLength(0)
+    expect(screen.getByRole('textbox', { name: '回答草稿' })).toBeInTheDocument()
+  })
+  it('lets the user switch modes manually', async () => {
+    renderWith(question)
+    fireEvent.click(screen.getByRole('button', { name: '代码模式' }))
+    expect((await screen.findAllByTestId('code-editor')).length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('button', { name: '文本模式' }))
+    expect(screen.queryAllByTestId('code-editor')).toHaveLength(0)
   })
 })

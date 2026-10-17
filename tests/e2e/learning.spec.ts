@@ -1,6 +1,20 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { readFileSync, writeFileSync } from 'node:fs'
 const storageKey = 'frontend-interview-lab:v1'
+
+// 代码题默认渲染 CodeMirror（contenteditable），其余题目是 textarea；草稿读写需要兼容两者。
+const draftBox = (page: Page, fullscreen = false) =>
+  page.getByRole('textbox', { name: fullscreen ? '全屏回答草稿' : '回答草稿', exact: true })
+
+async function setDraft(page: Page, text: string, fullscreen = false) {
+  await draftBox(page, fullscreen).fill(text)
+}
+
+async function readDraft(page: Page, fullscreen = false) {
+  return draftBox(page, fullscreen).evaluate((node) =>
+    node instanceof HTMLTextAreaElement ? node.value : (node.textContent ?? ''),
+  )
+}
 
 test('browse, search, reveal, rate, favorite and preserve hash route history', async ({ page }) => {
   await page.goto('#/questions')
@@ -13,13 +27,11 @@ test('browse, search, reveal, rate, favorite and preserve hash route history', a
   // 收窄到主内容区：顶栏的主题选择器自身也带 aria-expanded。
   await expect(page.locator('main [aria-expanded]')).toHaveCount(0)
   await page.getByRole('button', { name: '收藏本题', exact: true }).click()
-  await page.getByRole('textbox', { name: '回答草稿', exact: true }).fill('我的 React 回答')
+  await setDraft(page, '我的 React 回答')
   await page.getByRole('button', { name: /查看参考答案/ }).click()
   await page.getByRole('button', { name: '2 · 模糊' }).click()
   await page.reload()
-  await expect(page.getByRole('textbox', { name: '回答草稿', exact: true })).toHaveValue(
-    '我的 React 回答',
-  )
+  expect(await readDraft(page)).toBe('我的 React 回答')
   await expect(page.getByRole('button', { name: '取消收藏本题' })).toHaveAttribute(
     'aria-pressed',
     'true',
@@ -37,11 +49,9 @@ test('browse, search, reveal, rate, favorite and preserve hash route history', a
 test('five-question practice restores drafts and requires a rating or skip', async ({ page }) => {
   await page.goto('#/practice')
   await page.getByRole('button', { name: '开始练习', exact: true }).click()
-  await page.getByRole('textbox', { name: '回答草稿', exact: true }).fill('刷新仍在的练习草稿')
+  await setDraft(page, '刷新仍在的练习草稿')
   await page.reload()
-  await expect(page.getByRole('textbox', { name: '回答草稿', exact: true })).toHaveValue(
-    '刷新仍在的练习草稿',
-  )
+  expect(await readDraft(page)).toBe('刷新仍在的练习草稿')
   await page.getByRole('button', { name: /查看参考答案/ }).click()
   await expect(page.getByRole('button', { name: '下一题 →' })).toBeDisabled()
   await page.getByRole('button', { name: '3 · 掌握' }).click()
@@ -136,7 +146,7 @@ test('elapsed mock automatically submits once after reload', async ({ page }) =>
 
 test('export, clear, import and restore data and theme', async ({ page }, testInfo) => {
   await page.goto('#/questions/1')
-  await page.getByRole('textbox', { name: '回答草稿', exact: true }).fill('可恢复的草稿')
+  await setDraft(page, '可恢复的草稿')
   await page.getByRole('button', { name: /查看参考答案/ }).click()
   await page.getByRole('button', { name: '3 · 掌握' }).click()
   await page.goto('#/settings')
@@ -154,9 +164,7 @@ test('export, clear, import and restore data and theme', async ({ page }, testIn
   await page.getByRole('dialog').getByRole('button', { name: '确认导入' }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'vitesse-dark')
   await page.goto('#/questions/1')
-  await expect(page.getByRole('textbox', { name: '回答草稿', exact: true })).toHaveValue(
-    '可恢复的草稿',
-  )
+  expect(await readDraft(page)).toBe('可恢复的草稿')
   await expect(page.getByRole('button', { name: '3 · 掌握' })).toHaveAttribute(
     'aria-pressed',
     'true',
@@ -188,12 +196,10 @@ test('screens, responsive navigation, fullscreen draft and keyboard focus', asyn
   }
   await page.goto('#/questions/98')
   await page.getByRole('button', { name: '全屏编辑', exact: true }).click()
-  await page.getByRole('textbox', { name: '全屏回答草稿' }).fill('F R 1 2 3')
+  await setDraft(page, 'F R 1 2 3', true)
   await page.keyboard.press('Escape')
   await expect(page.getByRole('button', { name: '全屏编辑', exact: true })).toBeFocused()
-  await expect(page.getByRole('textbox', { name: '回答草稿', exact: true })).toHaveValue(
-    'F R 1 2 3',
-  )
+  expect(await readDraft(page)).toBe('F R 1 2 3')
   await page.getByRole('button', { name: /查看参考答案/ }).click()
   await page.getByRole('button', { name: '2 · 模糊' }).click()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(

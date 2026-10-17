@@ -770,6 +770,12 @@
   font-size: 13px;
   background: var(--bg);
 }
+.codeDraft {
+  min-height: 165px;
+}
+.codeDraft :global(.cm-editor) {
+  min-height: 165px;
+}
 .revealPanel {
   border-top: 1px solid var(--line);
   margin-top: 25px;
@@ -978,6 +984,52 @@
   padding: 0;
   background: transparent;
 }
+.prose :global(.hljs-comment),
+.prose :global(.hljs-quote),
+.prose :global(.hljs-meta) {
+  color: var(--syn-comment);
+  font-style: italic;
+}
+.prose :global(.hljs-keyword),
+.prose :global(.hljs-selector-tag),
+.prose :global(.hljs-literal),
+.prose :global(.hljs-doctag) {
+  color: var(--syn-keyword);
+}
+.prose :global(.hljs-string),
+.prose :global(.hljs-regexp),
+.prose :global(.hljs-symbol),
+.prose :global(.hljs-bullet) {
+  color: var(--syn-string);
+}
+.prose :global(.hljs-number) {
+  color: var(--syn-number);
+}
+.prose :global(.hljs-title),
+.prose :global(.hljs-section),
+.prose :global(.hljs-name),
+.prose :global(.hljs-function) {
+  color: var(--syn-function);
+}
+.prose :global(.hljs-type),
+.prose :global(.hljs-class),
+.prose :global(.hljs-built_in),
+.prose :global(.hljs-tag) {
+  color: var(--syn-type);
+}
+.prose :global(.hljs-attr),
+.prose :global(.hljs-attribute),
+.prose :global(.hljs-variable),
+.prose :global(.hljs-template-variable),
+.prose :global(.hljs-property),
+.prose :global(.hljs-params) {
+  color: var(--syn-variable);
+}
+.prose :global(.hljs-operator),
+.prose :global(.hljs-punctuation),
+.prose :global(.hljs-subst) {
+  color: var(--syn-operator);
+}
 .prose h1,
 .prose h2,
 .prose h3 {
@@ -1051,6 +1103,9 @@
 }
 .draftDialog textarea {
   height: 65vh;
+}
+.draftDialog .codeDraft :global(.cm-editor) {
+  min-height: 65vh;
 }
 .settingsRow {
   padding: 22px 0;

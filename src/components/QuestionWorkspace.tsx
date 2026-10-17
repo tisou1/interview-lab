@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import {
   categoryNames,
@@ -10,13 +10,23 @@ import {
   type SessionItem,
 } from '../types'
 import { formatTime } from '../lib/learning'
+import {
+  codeLanguageNames,
+  codeLanguages,
+  detectCodeLanguage,
+  isCodeQuestion,
+  type CodeLanguage,
+} from '../lib/codeLanguage'
 import { useLearning, useStorageStatus } from '../storage/store'
 import { useStudyClock } from '../hooks/useStudyClock'
 import { Badge, HtmlContent, Icon } from './ui'
 import { Reveal } from './Motion'
 import { Button } from '@/components/ui/button'
+import { AppSelect } from '@/components/ui/app-select'
 import { toast } from 'sonner'
 import styles from '../styles/App.module.css'
+
+const CodeEditor = lazy(() => import('./CodeEditor'))
 
 export default function QuestionWorkspace({
   question,
@@ -44,7 +54,16 @@ export default function QuestionWorkspace({
   const examLocked = !!activeMock && !activeMock.completedAt
   const [running, setRunning] = useState(context.kind !== 'detail' || item.seconds > 0)
   const [sections, setSections] = useState<string[]>([])
+  const [modeOverride, setModeOverride] = useState<{ id: number; code: boolean } | null>(null)
+  const [languageOverride, setLanguageOverride] = useState<{
+    id: number
+    language: CodeLanguage
+  } | null>(null)
   const [message, setMessage] = useState('')
+  const codeMode =
+    modeOverride?.id === question.id ? modeOverride.code : isCodeQuestion(question.type)
+  const language =
+    languageOverride?.id === question.id ? languageOverride.language : detectCodeLanguage(question)
   const dialog = useRef<HTMLDialogElement>(null)
   const { seconds, flush } = useStudyClock(context, item, running)
   const blockedNext = !mock && item.revealed && !item.mastery && item.status !== 'skipped'
@@ -108,7 +127,7 @@ export default function QuestionWorkspace({
     window.addEventListener('keydown', keydown)
     return () => window.removeEventListener('keydown', keydown)
   })
-  const draftArea = (fullscreen: boolean) => (
+  const draftTextarea = (fullscreen: boolean) => (
     <textarea
       aria-label={fullscreen ? '全屏回答草稿' : '回答草稿'}
       className={styles.draft}
@@ -117,6 +136,20 @@ export default function QuestionWorkspace({
       onChange={(e) => draft(question.id, e.target.value)}
     />
   )
+  const draftArea = (fullscreen: boolean) =>
+    codeMode ? (
+      <Suspense fallback={draftTextarea(fullscreen)}>
+        <CodeEditor
+          ariaLabel={fullscreen ? '全屏回答草稿' : '回答草稿'}
+          className={styles.codeDraft}
+          language={language}
+          value={p?.draft ?? ''}
+          onChange={(value) => draft(question.id, value)}
+        />
+      </Suspense>
+    ) : (
+      draftTextarea(fullscreen)
+    )
   return (
     <div className={styles.studyLayout}>
       <div>
@@ -149,6 +182,26 @@ export default function QuestionWorkspace({
               <span className={styles.muted}>
                 {storageError ? '保存异常，请导出数据' : '自动保存到此设备'}
               </span>
+              {codeMode && (
+                <AppSelect
+                  label="代码语言"
+                  value={language}
+                  options={codeLanguages.map((value) => ({
+                    value,
+                    label: codeLanguageNames[value],
+                  }))}
+                  onValueChange={(value) =>
+                    setLanguageOverride({ id: question.id, language: value as CodeLanguage })
+                  }
+                />
+              )}
+              <button
+                className={styles.tab}
+                aria-pressed={codeMode}
+                onClick={() => setModeOverride({ id: question.id, code: !codeMode })}
+              >
+                {codeMode ? '文本模式' : '代码模式'}
+              </button>
               <button className={styles.tab} onClick={() => dialog.current?.showModal()}>
                 全屏编辑
               </button>
@@ -351,7 +404,18 @@ export default function QuestionWorkspace({
           </>
         )}
       </aside>
-      <dialog ref={dialog} className={styles.draftDialog} aria-label="全屏草稿编辑">
+      <dialog
+        ref={dialog}
+        className={styles.draftDialog}
+        aria-label="全屏草稿编辑"
+        onKeyDownCapture={(event) => {
+          // 代码编辑器会消费 Escape，这里在捕获阶段抢先关闭全屏，让焦点回到「全屏编辑」。
+          if (event.key === 'Escape') {
+            event.stopPropagation()
+            dialog.current?.close()
+          }
+        }}
+      >
         <div className={styles.sectionHeading}>
           <h2>我的回答提纲</h2>
           <button onClick={() => dialog.current?.close()}>完成编辑</button>

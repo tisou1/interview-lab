@@ -15,6 +15,8 @@
 
 URL 保存搜索、分类、难度、题型、标签、状态、排序和紧凑视图。Zustand 保存跨页面学习数据；展开章节、弹窗、临时选择保存在组件。只读题库不存入 localStorage。
 
+答题草稿根据题型自动选择输入方式：`coding` / `debugging` 默认渲染 CodeMirror 6 代码编辑器，其余题型是普通 textarea，用户可在「代码模式 / 文本模式」间手动切换。编辑器按路由之外单独懒加载成 chunk，草稿仍以纯字符串写入 `QuestionProgress.draft`，可访问名沿用 `回答草稿` / `全屏回答草稿`。高亮颜色与编辑器主题都消费 `tokens.css` 的 `--syn-*` 与 `--code-bg` 语义变量，跟随主题切换。
+
 持久化 key 为 `frontend-interview-lab:v1`，当前内部 schema version 为 3。存储键后缀保留，迁移由 persist envelope 的版本号管理。版本 3 把主题字段从 `light` / `dark` 改为主题 id；旧值经 `toThemeId` 归一为默认的 Vitesse 浅色或深色，因此持久化迁移与 JSON 导入共用同一条映射。
 
 主题分层：`src/lib/themes.ts` 是主题注册表与 id 归一化的唯一来源；`src/styles/tokens.css` 按 `html[data-theme]` 声明调色板，语义变量在 `:root` 引用调色板；`Layout` 负责把当前主题同步到 `data-theme`、`.dark` 与 `meta[name=theme-color]`。样式层只消费语义变量，不写死颜色。

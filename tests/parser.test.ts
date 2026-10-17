@@ -10,6 +10,9 @@ const fixture = (answer = '### 参考答案\n\n正确答案。', id = 900) =>
 /** 改版前已发布的编号必须保留，否则按 ID 记录的学习进度会失去对应关系。 */
 const LEGACY_IDS = Array.from({ length: 115 }, (_, index) => index + 1)
 
+/** 构建期会用 rehype-highlight 给代码块插入 span，断言代码文本前先剥离标签。 */
+const text = (html = '') => html.replace(/<[^>]*>/g, '')
+
 /** 答案小节的约定名称，新增题目必须复用其中之一。 */
 const SECTION_TITLES = new Set([
   '核心答案',
@@ -33,10 +36,12 @@ describe('Markdown source pipeline', () => {
     expect(questions.length).toBeGreaterThanOrEqual(150)
     for (const id of LEGACY_IDS) expect(ids).toContain(id)
     expect(ids.filter((id) => id >= 116)).toHaveLength(questions.length - LEGACY_IDS.length)
-    expect(questions.find((question) => question.id === 96)?.answerSections[0].html).toContain(
-      'reduceRight',
+    expect(
+      text(questions.find((question) => question.id === 96)?.answerSections[0].html),
+    ).toContain('reduceRight')
+    expect(text(questions.find((question) => question.id === 98)?.promptHtml)).toContain(
+      'setPending',
     )
-    expect(questions.find((question) => question.id === 98)?.promptHtml).toContain('setPending')
     expect(questions.every((question) => question.source.line > 0)).toBe(true)
   })
   it('keeps answer sections non-empty, consistently named and free of broken code blocks', () => {
@@ -76,12 +81,12 @@ describe('Markdown source pipeline', () => {
       ),
     )[0]
     expect(question.answerSections.map((s) => s.title)).toEqual(['核心答案', '追问', '易错点'])
-    expect(question.answerSections[0].html).toContain('const value = 1')
+    expect(text(question.answerSections[0].html)).toContain('const value = 1')
   })
   it('does not treat fenced headings as questions', () => {
     const question = parseQuestions(fixture('```md\n## 999. 假题目\n```\n\n真实答案'))
     expect(question).toHaveLength(1)
-    expect(question[0].answerSections[0].html).toContain('999.')
+    expect(text(question[0].answerSections[0].html)).toContain('999.')
   })
   it('sanitizes unsafe HTML and external links', () => {
     const question = parseQuestions(

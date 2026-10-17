@@ -45,9 +45,9 @@
 
 ## 生成过程
 
-`scripts/build-question-data.mjs` 使用 remark AST 识别真正的标题，跳过 fenced code 内的伪标题。提取答案后，经 remark-gfm、remark-rehype、rehype-raw 和 rehype-sanitize 处理为安全 HTML，再按答案标题分层。
+`scripts/build-question-data.mjs` 使用 remark AST 识别真正的标题，跳过 fenced code 内的伪标题。提取答案后，经 remark-gfm、remark-rehype、rehype-raw 和 rehype-sanitize 处理为安全 HTML，再按答案标题分层。清洗之后再经 rehype-highlight 给带 `language-*` 的代码块插入 `hljs-*` span，高亮只作用于已过滤文本，不引入新的不可信节点，且用户端零高亮依赖（`rehype-highlight` 是构建期依赖）。
 
-安全过滤使用白名单；删除事件属性、脚本和不安全 URL；代码块仅保留语言 class；外部链接添加 `noopener noreferrer`。用户草稿通过 textarea 文本值渲染，永不拼入 HTML。
+安全过滤使用白名单；删除事件属性、脚本和不安全 URL；代码块仅保留语言 class；外部链接添加 `noopener noreferrer`。用户草稿（textarea 或代码编辑器）只作为文本值保存与展示，永不拼入 HTML。
 
 输出：轻量 `index.json`（题目元数据和搜索文本）、各分类题目数据、`roadmap.json`。全部生成文件位于 `src/data/generated/`，由 Git 忽略。Vite 构建将分类数据拆成延迟加载模块。
 
