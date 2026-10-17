@@ -185,6 +185,10 @@ dialog {
   color: var(--text);
   background: var(--surface);
 }
+/* 预检把 * 的 margin 归零，会覆盖 UA 的 dialog{ margin:auto }，显式加回以让模态框居中。*/
+dialog:modal {
+  margin: auto;
+}
 dialog::backdrop {
   background: #00000070;
   backdrop-filter: blur(3px);
