@@ -6,7 +6,7 @@
 
 ---
 
-> 本次审校覆盖原有 1–150 题，补充题干、机制、边界与参考实现；新增 151–156 题，覆盖异步控制、原型污染与 TypeScript 类型操作。原编号保持稳定。
+> 本次审校覆盖原有 1–150 题，补充题干、机制、边界与参考实现；新增 151–176 题：151–156 覆盖异步控制、原型污染与 TypeScript 类型操作，157–176 覆盖 JavaScript 语言机制手写、异步控制、工具函数、React 自定义 Hook、TypeScript 类型操作，以及项目常见的请求合并、依赖编排与数据格式转换。原编号保持稳定。
 
 ## 0. 使用方法
 
@@ -7503,6 +7503,1163 @@ const homePath: '/' = routes.home.path // 保留字面量
 **业务中怎样选择？** 公共函数参数和返回值通常明确注解；静态配置表可用 satisfies 检查形状，需要字面量/只读视图时组合 as const；as 只用于已有证据但编译器无法表达的窄边界，解释证据并避免双重断言。
 
 参考：[TypeScript satisfies](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-9.html#the-satisfies-operator)、[const assertions](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-3-4.html#const-assertions)。
+
+</details>
+
+---
+
+## 157. 手写 `call` 与 `apply`
+
+<!-- question: {"category":"javascript","type":"coding","difficulty":"intermediate","tags":["JavaScript","call","apply","this"],"estimatedMinutes":10} -->
+
+实现 `callIt(fn, thisArg, ...args)` 与语义等价的 `applyIt(fn, thisArg, argsArray)`，让任意普通函数以指定 `this` 执行并返回结果。`applyIt` 的第三个参数可为 `null`/`undefined` 或类数组（有 `length`），不要求是真正的数组。说明为什么手写实现无法完全复刻原生 `call` 在严格模式下的 `this` 替换规则。
+
+<details>
+<summary>展开参考答案与解析</summary>
+
+把函数临时挂到目标对象上，用 `target.method()` 的形式调用，JavaScript 就会把 `target` 作为 `this`，调用完再删除该属性。用 `Symbol` 作为键可以避免覆盖目标对象上的同名属性。
+
+### 参考实现
+
+```js
+function callIt(fn, thisArg, ...args) {
+  if (typeof fn !== 'function') throw new TypeError('fn must be a function')
+  const key = Symbol('thisArg')
+  const target = thisArg == null ? globalThis : Object(thisArg)
+  Object.defineProperty(target, key, { value: fn, configurable: true })
+  try {
+    return target[key](...args)
+  } finally {
+    delete target[key]
+  }
+}
+
+function applyIt(fn, thisArg, argsArray) {
+  if (typeof fn !== 'function') throw new TypeError('fn must be a function')
+  if (argsArray == null) return callIt(fn, thisArg)
+  return callIt(fn, thisArg, ...Array.from(argsArray))
+}
+```
+
+### 边界与易错点
+
+- 原生 `call`/`apply` 不修改 `thisArg`；本实现要临时给目标对象加属性再删除。目标被 `Object.freeze`/`seal` 或不可扩展时会抛 `TypeError`，用 `Proxy` 还可能触发陷阱或访问器副作用。`Reflect.apply` 不碰目标对象，是更接近原生的做法。
+- 严格模式的函数被 `call` 传入原始值时，`this` 保持原始值本身（`null`/`undefined` 也不替换）；非严格模式会装箱原始值，`null`/`undefined` 替换为全局对象。运行时没有可靠方式判断一个函数是否为严格模式，因此本实现只能按一种近似处理。
+- 箭头函数没有自己的 `this`，`call`/`apply` 无法改变它；类构造函数必须用 `new` 调用，直接 `call` 会抛错。
+- 原生 `apply` 的第二个参数可以是任意类数组对象（只要求有 `length`），而展开运算符只接受可迭代对象，所以这里用 `Array.from` 兜底。
+- 这是教学近似实现；原生还涉及 `[[Call]]` 的 non-callable 检查与完整的 `this` 替换规则，见 [ECMAScript `Function.prototype.apply`](https://tc39.es/ecma262/multipage/fundamental-objects.html#sec-function.prototype.apply)。
+
+### 追问
+
+- **为什么不直接 `context.fn = fn`？** 会覆盖 `thisArg` 上的同名属性且留下残留字段；用 `Symbol` 键基本避免覆盖，但仍会短暂改动对象并受 Proxy/冻结影响。`Reflect.apply(fn, thisArg, args)` 直接执行规范调用，不需要属性挂载。
+- **`apply` 和 `call` 只是参数形式不同吗？** 是；`apply` 多用一次数组参数的拆解，本质都是设定 `this` 并调用。
+
+</details>
+
+---
+
+## 158. 手写 `bind`
+
+<!-- question: {"category":"javascript","type":"coding","difficulty":"intermediate","tags":["JavaScript","bind","new"],"estimatedMinutes":12} -->
+
+实现 `myBind(fn, thisArg, ...presetArgs)`：返回的函数可继续接收参数并拼接在预设参数之后；以 `new` 调用返回的函数时忽略 `thisArg`，并让实例的原型指向 `fn.prototype`，使 `instanceof fn` 成立。说明为什么用箭头函数承载会失败。
+
+<details>
+<summary>展开参考答案与解析</summary>
+
+返回普通函数而不是箭头函数，才能同时具备普通调用与 `[[Construct]]` 两种行为。用 `new.target` 区分：普通调用走 `Reflect.apply` 绑定 `this`，`new` 调用走 `Reflect.construct`，由后者按规范设置实例原型。
+
+### 参考实现
+
+```js
+function myBind(fn, thisArg, ...presetArgs) {
+  if (typeof fn !== 'function') throw new TypeError('fn must be a function')
+
+  function bound(...laterArgs) {
+    const args = [...presetArgs, ...laterArgs]
+    return new.target ? Reflect.construct(fn, args) : Reflect.apply(fn, thisArg, args)
+  }
+
+  return bound
+}
+
+function Point(x, y) {
+  this.x = x
+  this.y = y
+}
+const BoundPoint = myBind(Point, { ignored: true }, 1)
+const point = new BoundPoint(2) // { x: 1, y: 2 }
+point instanceof Point // true
+```
+
+### 边界与易错点
+
+- `new.target` 只有在以 `new` 调用时才有值，用它区分两种调用方式。`Reflect.construct(fn, args)` 默认以 `fn` 作为 `newTarget`，实例原型即 `fn.prototype`，因此 `instanceof fn` 成立；`thisArg` 在 `new` 时被忽略。
+- 嵌套 `bind` 的预设参数按绑定顺序从左到右拼接；`bound` 自身是普通函数，可继续被 `myBind`，也可被子类 `extends`。
+- 原生的 bound 函数没有自己的 `prototype` 属性，`bound.prototype` 为 `undefined`；本实现返回的是普通函数，`bound.prototype` 存在，所以 `new bound() instanceof bound` 这类边界行为与原生不同（原生此处会因 `prototype` 非对象抛错）。
+- `bind` 只预设参数与 `this`，不能改变箭头函数的 `this`；类构造函数 `bind` 后仍须用 `new` 调用。
+- 原生还会设置 `name` 前缀 `bound `、令 `length` 为 `max(0, target.length - boundArgs.length)`、并在 `newTarget` 为绑定函数本身时把它替换为目标构造函数级联；本实现未复刻这些细节。见 [ECMAScript Bound Function `[[Construct]]`](https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-bound-function-exotic-objects-construct)。
+
+### 追问
+
+- **为什么不能返回箭头函数？** 箭头函数没有 `[[Construct]]`，`new` 会抛错，也无法用 `new.target` 区分调用方式。
+- **`myBind` 和 `fn.bind` 还有哪些差异？** `length`/`name`、`prototype` 属性、以及被当作 `newTarget` 时的级联替换；生产中直接使用 `Function.prototype.bind` 或 `Reflect.construct`。
+
+</details>
+
+---
+
+## 159. 模拟 `new` 运算符
+
+<!-- question: {"category":"javascript","type":"coding","difficulty":"intermediate","tags":["JavaScript","new","prototype"],"estimatedMinutes":10} -->
+
+实现 `myNew(Constructor, ...args)`，复刻 `new` 的关键步骤：按 `Constructor.prototype` 创建实例、以实例为 `this` 调用构造函数、依据返回值决定最终结果。说明构造函数返回原始值、返回对象时的差异，以及为什么该实现对 `class` 无效。
+
+<details>
+<summary>展开参考答案与解析</summary>
+
+`new` 大致等于：创建一个原型为 `Constructor.prototype` 的对象，以它为 `this` 调用构造函数，若构造函数返回对象（或函数）则用该返回值，否则用新实例。`Object.create` 负责原型，`Function.prototype.apply` 负责以指定 `this` 调用。
+
+### 参考实现
+
+```js
+function myNew(Constructor, ...args) {
+  if (typeof Constructor !== 'function') {
+    throw new TypeError('Constructor must be a function')
+  }
+  const proto = Constructor.prototype
+  const instance = Object.create(
+    proto !== null && (typeof proto === 'object' || typeof proto === 'function')
+      ? proto
+      : Object.prototype,
+  )
+  const result = Constructor.apply(instance, args)
+  return result !== null && (typeof result === 'object' || typeof result === 'function')
+    ? result
+    : instance
+}
+```
+
+### 边界与易错点
+
+- 构造函数返回原始值（含 `null`）时被忽略，`new` 表达式结果仍是新实例；返回对象或函数时，该返回值会替换掉新实例。
+- `class` 构造函数不能用 `apply` 调用，会抛 “Class constructor cannot be invoked without 'new'”，因此本模拟对 `class` 无效。要正确地复刻 `new`，应使用 `Reflect.construct(Constructor, args)`，它执行规范的 `[[Construct]]`。
+- 真实 `new` 会让构造函数内的 `new.target` 指向构造函数，本模拟用 `apply` 调用时 `new.target` 为 `undefined`；箭头函数、生成器函数没有 `[[Construct]]`，真实 `new` 会抛 `TypeError`，本模拟不会。
+- `Constructor.prototype` 不是对象（含函数也没有默认 `prototype` 时）时，规范回退到 `Object.prototype`；这一分支要与“原型链继承”一并理解。
+- `Object.create` 建立的实例决定着 `instanceof`、属性查找和方法调用。见 [ECMAScript `[[Construct]]`](https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-ordinary-object-internal-methods-and-internal-slots-construct)。
+
+### 追问
+
+- **为什么不能直接 `return Constructor.apply({}, args)`？** 缺少 `Object.create` 设置原型，实例无法继承 `Constructor.prototype`，`instanceof` 和原型方法都会失效。
+- **`Reflect.construct` 与手写 `new` 的关系？** `Reflect.construct` 是可调用的规范构造操作，能正确处理 `class`、`new.target` 和原型解析，是运行时复刻 `new` 的推荐方式。
+
+</details>
+
+---
+
+## 160. 手写 `instanceof`
+
+<!-- question: {"category":"javascript","type":"coding","difficulty":"basic","tags":["JavaScript","instanceof","prototype"],"estimatedMinutes":8} -->
+
+实现 `myInstanceof(value, Constructor)`，沿 `value` 的原型链查找是否等于 `Constructor.prototype`。说明原始值输入、`Constructor.prototype` 非对象、以及自定义 `Symbol.hasInstance` 三种情况下的差异。
+
+<details>
+<summary>展开参考答案与解析</summary>
+
+`instanceof` 本质是原型链查找：从 `value` 的原型开始逐层向上，看是否遇到 `Constructor.prototype`。原始值没有原型链，直接返回 `false`。
+
+### 参考实现
+
+```js
+function myInstanceof(value, Constructor) {
+  if (typeof Constructor !== 'function') {
+    throw new TypeError('Right-hand side of instanceof is not callable')
+  }
+  if (value === null || (typeof value !== 'object' && typeof value !== 'function')) {
+    return false
+  }
+  const target = Constructor.prototype
+  let proto = Object.getPrototypeOf(value)
+  while (proto !== null) {
+    if (proto === target) return true
+    proto = Object.getPrototypeOf(proto)
+  }
+  return false
+}
+```
+
+### 边界与易错点
+
+- 原始值（`number`/`string`/`boolean`/`symbol`/`bigint`）没有原型链，`1 instanceof Number` 原生也是 `false`，不会先装箱再判断。
+- `Constructor.prototype` 不是对象时（如箭头函数），`target` 为 `undefined`，循环中永不相等，返回 `false`，与原生一致。
+- 原生会先检查 `Constructor[Symbol.hasInstance]`；若自定义了该方法，判定可与原型链完全无关。本实现只做原型链查找，忽略 `Symbol.hasInstance`。
+- 跨 realm（不同 iframe/worker）的 `Constructor.prototype` 属于另一个 realm，原型链通常对不上，`instanceof` 会返回 `false`。
+- 沿链查找的时间复杂度 O(链长)，额外空间 O(1)。规范定义见 [OrdinaryHasInstance](https://tc39.es/ecma262/multipage/abstract-operations.html#sec-ordinaryhasinstance)。
+
+### 追问
+
+- **`Object.create(null)` 的实例呢？** 原型为 `null`，除非 `target` 恰好也是 `null`，否则返回 `false`。
+- **构造函数返回对象时 `instanceof` 会怎样？** 最终结果对象可能不继承 `Constructor.prototype`，此时 `result instanceof Constructor` 为 `false`。
+
+</details>
+
+---
+
+## 161. 手写简化版 `Promise`
+
+<!-- question: {"category":"javascript","type":"coding","difficulty":"advanced","tags":["JavaScript","Promise","微任务"],"estimatedMinutes":15} -->
+
+实现一个简化版 `MyPromise`，支持 `new MyPromise(executor)`、`then` 链式调用、状态单向流转（pending→fulfilled/rejected）、thenable 采纳和回调异步执行。成功回调的返回值应作为下一个 Promise 的履行值；回调抛错或返回被拒绝的 Promise 应向下传播。说明它相比原生 Promise 缺少哪些能力。
+
+<details>
+<summary>展开参考答案与解析</summary>
+
+用一个状态机加一组待处理回调实现：`then` 注册回调并返回新 Promise，状态落定时通过微任务异步触发。`resolve` 负责采纳 thenable，`reject`/`resolve` 用状态守卫保证只 settle 一次，回调返回值经 `resolve` 递归解析形成链式。
+
+### 参考实现
+
+```js
+const PENDING = 0
+const FULFILLED = 1
+const REJECTED = 2
+
+class MyPromise {
+  constructor(executor) {
+    if (typeof executor !== 'function') {
+      throw new TypeError('executor must be a function')
+    }
+    this.state = PENDING
+    this.value = undefined
+    this.handlers = []
+
+    const settle = (state, value) => {
+      if (this.state !== PENDING) return
+      this.state = state
+      this.value = value
+      queueMicrotask(() => this.#flush())
+    }
+
+    const reject = (reason) => settle(REJECTED, reason)
+
+    const resolve = (value) => {
+      if (this.state !== PENDING) return
+      if (value instanceof MyPromise) {
+        value.then(resolve, reject)
+        return
+      }
+      if (value !== null && (typeof value === 'object' || typeof value === 'function')) {
+        let then
+        try {
+          then = value.then
+        } catch (error) {
+          reject(error)
+          return
+        }
+        if (typeof then === 'function') {
+          queueMicrotask(() => then.call(value, resolve, reject))
+          return
+        }
+      }
+      settle(FULFILLED, value)
+    }
+
+    try {
+      executor(resolve, reject)
+    } catch (error) {
+      reject(error)
+    }
+  }
+
+  #flush() {
+    const handlers = this.handlers
+    this.handlers = []
+    for (const handle of handlers) handle()
+  }
+
+  then(onFulfilled, onRejected) {
+    return new MyPromise((resolve, reject) => {
+      const handle = () => {
+        const callback = this.state === FULFILLED ? onFulfilled : onRejected
+        if (typeof callback !== 'function') {
+          if (this.state === FULFILLED) resolve(this.value)
+          else reject(this.value)
+          return
+        }
+        try {
+          resolve(callback(this.value))
+        } catch (error) {
+          reject(error)
+        }
+      }
+      if (this.state === PENDING) this.handlers.push(handle)
+      else queueMicrotask(handle)
+    })
+  }
+
+  catch(onRejected) {
+    return this.then(undefined, onRejected)
+  }
+
+  static resolve(value) {
+    return new MyPromise((resolve) => resolve(value))
+  }
+
+  static reject(reason) {
+    return new MyPromise((_, reject) => reject(reason))
+  }
+}
+```
+
+### 边界与易错点
+
+- 回调必须异步执行（这里用 `queueMicrotask`），否则 `then` 里注册的回调会同步嵌套，出现“时而同步时而异步”的 Zalgo 问题。
+- 采纳 thenable 时要异步调用其 `then`，并用 `try/catch` 包住 `value.then` 的读取（可能是 getter）。状态守卫保证只 settle 一次，重复 `resolve`/`reject` 会被忽略。
+- `then` 必须返回新的 Promise 才能支持链式；回调返回值会经 `resolve` 再次解析（可能是普通值、Promise 或 thenable），链上抛错转成拒绝。
+- 简化点：未实现 `finally`、`all`/`allSettled`/`race`/`any`、自解析（`resolve` 传入自身应抛 `TypeError`）、`Species`/子类、未处理拒绝的全局报告、以及 thenable 递归深度限制。
+- 与原生 Promise 的调度细节略有差异，但“异步、单次 settle、链式、错误传播”这四个语义是一致的。规范见 [ECMAScript Promise Objects](https://tc39.es/ecma262/multipage/control-abstraction-objects.html#sec-promise-objects)。
+
+### 追问
+
+- **为什么 `then` 回调不能同步调用？** 让回调运行在当前同步代码之后，保证顺序可预测，并避免回调中再注册的回调产生同步嵌套。
+- **`all`/`race` 怎么加？** 组合多个 `then`：`all` 用计数器收集并保持输入顺序，`race` 用一个标志让首个 settle 生效；注意 `resolve`/`reject` 幂等。
+
+</details>
+
+---
+
+## 162. 手写 `Promise.allSettled`
+
+<!-- question: {"category":"javascript","type":"coding","difficulty":"intermediate","tags":["JavaScript","Promise","allSettled"],"estimatedMinutes":10} -->
+
+实现 `allSettled(iterable)`：返回数组，每项为 `{ status: 'fulfilled', value }` 或 `{ status: 'rejected', reason }`，保持输入顺序，必须等全部 settle 后才 fulfilled，自身不因元素失败而拒绝。空输入返回 `[]`，非 iterable 输入应拒绝。说明它与 `Promise.all` 的取舍。
+
+<details>
+<summary>展开参考答案与解析</summary>
+
+为每个元素注册成功与失败两个处理器，把结果按输入下标写入数组；用剩余计数器判断是否全部完成。计数初始为 1 作为“遍历尚未结束”的哨兵，避免空输入被误判为已完成。
+
+### 参考实现
+
+```js
+function allSettled(iterable) {
+  return new Promise((resolve, reject) => {
+    const results = []
+    let remaining = 1
+    let index = 0
+    try {
+      for (const value of iterable) {
+        const current = index++
+        results.push(undefined)
+        remaining += 1
+        Promise.resolve(value).then(
+          (result) => {
+            results[current] = { status: 'fulfilled', value: result }
+            if (--remaining === 0) resolve(results)
+          },
+          (reason) => {
+            results[current] = { status: 'rejected', reason }
+            if (--remaining === 0) resolve(results)
+          },
+        )
+      }
+    } catch (error) {
+      reject(error)
+      return
+    }
+    if (--remaining === 0) resolve(results)
+  })
+}
+```
+
+### 边界与易错点
+
+- 元素失败不会让外层拒绝，只有输入不可迭代（`for...of` 同步抛错）时才拒绝；哨兵计数保证空输入与遍历结束都被正确识别。
+- 结果按输入下标排列，与 settle 顺序无关；稀疏数组的空位按 `undefined` 处理。
+- `Promise.all`：首个拒绝立即让整体拒绝，其余结果被丢弃；`Promise.allSettled`：总是等全部结束并保留每项状态。需要汇总成功/失败/重试时用 `allSettled`，需要快速失败时用 `all`。
+- 这是对原生语义的等价实现，原生定义见 [ECMAScript `Promise.allSettled`](https://tc39.es/ecma262/multipage/control-abstraction-objects.html#sec-promise.allsettled)。
+
+### 追问
+
+- **还想区分“超时”等状态怎么办？** 在 `reason` 上附加字段或在包装层另记状态，不要改变规范约定的 `status` 枚举。
+- **为什么不能 `map` 后直接 `push`？** 会按 settle 顺序排列，破坏与输入下标的对应关系。
+
+</details>
+
+---
+
+## 163. 带指数退避与取消的轮询 `poll`
+
+<!-- question: {"category":"javascript","type":"coding","difficulty":"advanced","tags":["JavaScript","轮询","AbortSignal","退避"],"estimatedMinutes":12} -->
+
+实现 `poll(task, options)`：反复调用 `task(attempt)` 直到返回真值或达到 `maxAttempts`；每次未命中后等待，等待时间按 `backoff` 增长并封顶 `maxInterval`；外部 `signal` 取消时立即以 `signal.reason` 拒绝并停止。命中时返回该真值，次数用尽返回 `undefined`。`task` 抛错时应向外拒绝。
+
+<details>
+<summary>展开参考答案与解析</summary>
+
+把“等待”抽成可取消的 `sleep`：定时器与 `abort` 监听成对清理，取消时立刻拒绝而不等定时器。主循环在每次迭代前检查 `signal`，命中即返回，否则按当前延迟等待并用退避系数增长、封顶。
+
+### 参考实现
+
+```js
+function sleep(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason)
+      return
+    }
+    const onAbort = () => {
+      clearTimeout(timer)
+      reject(signal.reason)
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
+async function poll(
+  task,
+  { interval = 1000, maxAttempts = Infinity, maxInterval = 30000, backoff = 2, signal } = {},
+) {
+  let delay = interval
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    signal?.throwIfAborted()
+    const result = await task(attempt)
+    if (result) return result
+    if (attempt === maxAttempts) break
+    await sleep(delay, signal)
+    delay = Math.min(delay * backoff, maxInterval)
+  }
+  return undefined
+}
+```
+
+### 边界与易错点
+
+- 每次迭代前用 `signal.throwIfAborted()` 快速失败；`sleep` 期间监听 `abort`，取消立即生效且不会残留定时器或监听器，避免内存泄漏。
+- 定时器受任务队列与后台节流影响，不保证精确间隔；`backoff × delay` 必须封顶，否则整数会溢出或无限增长。`maxInterval` 应不小于 `interval`。
+- 单个 `task` 抛错会默认中断整个轮询并向调用方拒绝；若希望忽略偶发错误继续重试，应在 `task` 内 `try/catch` 或增加错误重试策略。
+- `maxAttempts` 为 0 或负数时应直接返回 `undefined`，注意循环边界。幂等查询适合轮询；非幂等操作慎用。
+- 多个消费者可加抖动（jitter）避免惊群，或复用同一 Promise（见第 172 题）。
+
+### 追问
+
+- **如何避免多个组件重复轮询？** 把轮询结果做成共享订阅或 in-flight 复用，而不是各自 `setInterval`。
+- **退避何时应重置？** 成功或状态变化后可重置 `delay`，只有连续失败才增长。
+
+</details>
+
+---
+
+## 164. 实现串行任务队列
+
+<!-- question: {"category":"javascript","type":"coding","difficulty":"advanced","tags":["JavaScript","队列","串行"],"estimatedMinutes":12} -->
+
+实现 `createQueue()`，提供 `add(task)` 返回 promise：任务按加入顺序**串行**执行（并发恒为 1），前一个 settle 后才启动下一个；单个任务失败不影响后续任务，其拒绝只传递给对应 `add` 的 promise。再提供 `onIdle()`，在队列清空时 resolve。
+
+<details>
+<summary>展开参考答案与解析</summary>
+
+用一条 `tail` promise 链把任务串起来：每次把新任务挂在链尾，再更新链尾为“吞掉结果”的 promise，从而前一个任务结束（无论成败）都会触发下一个。用计数器维护在途数量，`onIdle` 在归零时通知。
+
+### 参考实现
+
+```js
+function createQueue() {
+  let tail = Promise.resolve()
+  let pending = 0
+  let idleResolvers = []
+
+  function notifyIdle() {
+    const resolvers = idleResolvers
+    idleResolvers = []
+    for (const resolve of resolvers) resolve()
+  }
+
+  function add(task) {
+    pending += 1
+    const run = tail.then(task, task)
+    tail = run.then(
+      () => {},
+      () => {},
+    )
+    return run.finally(() => {
+      pending -= 1
+      if (pending === 0) notifyIdle()
+    })
+  }
+
+  function onIdle() {
+    if (pending === 0) return Promise.resolve()
+    return new Promise((resolve) => idleResolvers.push(resolve))
+  }
+
+  return { add, onIdle }
+}
+```
+
+### 边界与易错点
+
+- 串行由 `tail` 链保证：`tail.then(task, task)` 让任务在上一个 settle 后才执行，两个处理器都传 `task` 使前一个的失败被吸收，从而不阻断后续任务。
+- `add` 返回的 promise 单独反映该任务结果；队列不聚合错误，失败不会污染其它任务的 promise。调用方若不处理 `add` 的拒绝会产生未处理拒绝。
+- `onIdle` 在无待处理任务时立即 resolve；`add` 的 `finally` 与 idle 通知存在时序关系，使用计数与批量 resolve 避免遗漏或重复通知。
+- 每次 `then` 会保留微任务链，极长队列会增加内存；同时 `pending` 的增减依赖 `finally`，注意它不影响 `run` 本身的结果。
+- 与并发限制器（第 88 题 `mapLimit`）相反：这里并发恒为 1，表达的是顺序而非数量上限。
+
+### 追问
+
+- **如何加取消或超时？** 给 `task` 传 `AbortSignal`，或在 `run` 外层用超时 `race`；取消不代表任务已经停止，副作用仍需幂等处理。
+- **队列和防抖有什么区别？** 队列保证顺序与串行、不合并重复调用；防抖是合并高频调用、只执行最后一次。
+
+</details>
+
+---
+
+## 165. 手写 `deepEqual`
+
+<!-- question: {"category":"javascript","type":"coding","difficulty":"intermediate","tags":["JavaScript","deepEqual","递归"],"estimatedMinutes":12} -->
+
+实现 `deepEqual(a, b)`：递归比较原始值、普通对象、数组、`Date` 与 `RegExp`；`NaN` 视为相等，`-0` 与 `0` 不相等；支持循环引用；不要求比较 `Map`/`Set`/类实例（按引用比较）。说明为什么不能用 `JSON.stringify` 替代。
+
+<details>
+<summary>展开参考答案与解析</summary>
+
+先按引用与 `Object.is` 快速判定（同时处理 `NaN` 与 `-0`），再判断类型、特例对象（`Date`/`RegExp`），最后递归比较数组元素与对象自有可枚举键。用 `Map` 记录已访问的 `a→b` 配对，既避免循环引用无限递归，也校验结构一致。
+
+### 参考实现
+
+```js
+function deepEqual(a, b, seen = new Map()) {
+  if (Object.is(a, b)) return true
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) {
+    return false
+  }
+
+  const paired = seen.get(a)
+  if (paired) return paired === b
+  seen.set(a, b)
+
+  if (a instanceof Date) return a.getTime() === b.getTime()
+  if (a instanceof RegExp) return a.source === b.source && a.flags === b.flags
+
+  const aIsArray = Array.isArray(a)
+  if (aIsArray !== Array.isArray(b)) return false
+
+  if (aIsArray) {
+    if (a.length !== b.length) return false
+    for (let index = 0; index < a.length; index += 1) {
+      if (!deepEqual(a[index], b[index], seen)) return false
+    }
+    return true
+  }
+
+  const aKeys = Object.keys(a)
+  const bKeys = Object.keys(b)
+  if (aKeys.length !== bKeys.length) return false
+  for (const key of aKeys) {
+    if (!Object.hasOwn(b, key) || !deepEqual(a[key], b[key], seen)) return false
+  }
+  return true
+}
+```
+
+### 边界与易错点
+
+- 用 `Object.is` 处理两件原生比较会出错的事：`NaN` 与自身相等、`-0` 与 `0` 不相等；`===` 会把 `NaN` 判为不等，`+0`/`-0` 判为相等。
+- 只比较数组与普通对象的自有可枚举字符串键；`Symbol` 键、不可枚举属性、原型链属性不参与。若两个不同构造函数的实例键相同，会被判为相等——这是“只比较数据”的取舍。
+- `Date` 用 `getTime`、`RegExp` 用 `source + flags`；不要依赖 `toString`，它受本地化/格式影响。
+- 循环引用依赖 `seen` 的配对记录；数组空位在本实现中按 `undefined` 比较（与原生 `Array.prototype` 的稀疏语义不同）。最坏情况时间 O(节点数)、空间 O(深度 + 配对表)。
+- 与结构化克隆、序列化比较的区别见 [structuredClone](https://developer.mozilla.org/en-US/docs/Web/API/Window/structuredClone)。
+
+### 追问
+
+- **为什么不能用 `JSON.stringify` 比较？** 键顺序会影响结果，`undefined`/函数/Symbol 会被丢弃，`Date` 会变成字符串，`NaN` 变 `null`，且无法处理循环引用。
+- **如何支持 `Map`/`Set`？** 需要按集合语义（无序、按值）比较，并同样处理循环引用，复杂度更高，通常交给专门的深比较库。
+
+</details>
+
+---
+
+## 166. 手写 `flatten`
+
+<!-- question: {"category":"javascript","type":"coding","difficulty":"basic","tags":["JavaScript","flatten","递归"],"estimatedMinutes":8} -->
+
+实现 `flatten(input, depth = 1)`：把嵌套数组展平到指定深度，`depth` 为 `Infinity` 时完全展平；`depth` 为 0 时返回浅拷贝；不修改原数组；输入必须是数组，否则抛 `TypeError`。说明如何处理稀疏数组空位才与原生 `Array.prototype.flat` 一致。
+
+<details>
+<summary>展开参考答案与解析</summary>
+
+用递归遍历并按剩余深度决定是否继续下钻：`depth > 0` 且元素是数组时继续展平，否则作为结果。用索引循环并借助 `index in array` 跳过空位，与原生 `flat` 的行为保持一致。
+
+### 参考实现
+
+```js
+function flatten(input, depth = 1) {
+  if (!Array.isArray(input)) throw new TypeError('input must be an array')
+  const limit = depth === Infinity ? Infinity : Math.max(0, Math.trunc(Number(depth) || 0))
+  const result = []
+  const walk = (array, level) => {
+    for (let index = 0; index < array.length; index += 1) {
+      if (!(index in array)) continue
+      const value = array[index]
+      if (level > 0 && Array.isArray(value)) walk(value, level - 1)
+      else result.push(value)
+    }
+  }
+  walk(input, limit)
+  return result
+}
+```
+
+### 边界与易错点
+
+- `depth = Infinity` 时 `level - 1` 仍为 `Infinity`，可完全展平；`depth = 0` 不做下钻，等价于浅拷贝顶层。负数按 0 处理（也可改为按契约报错，但必须明确）。
+- 原生 `Array.prototype.flat` 会**跳过**稀疏数组空位，结果不含空洞；`for...of` 会把空位读成 `undefined`，两者不一致，所以这里用索引 + `in` 判断。
+- 只展平数组元素，类数组对象与其它可迭代对象不处理（与原生一致）。返回新数组，不修改输入。
+- 极深嵌套的递归可能栈溢出；需要吞吐时改写为显式栈的迭代版本。规范见 [Array.prototype.flat](https://tc39.es/ecma262/multipage/indexed-collections.html#sec-array.prototype.flat)。
+
+### 追问
+
+- **如何实现 `flatMap`？** 先 `map` 再按一层展平，注意 `map` 结果里保留的空位与 `flat` 跳过空位的行为差异。
+- **如何做完全展平且保序？** 用栈逆序压入子数组元素，迭代过程中同样跳过空位。
+
+</details>
+
+---
+
+## 167. 手写 `memoize`
+
+<!-- question: {"category":"javascript","type":"coding","difficulty":"intermediate","tags":["JavaScript","memoize","缓存","LRU"],"estimatedMinutes":12} -->
+
+实现 `memoize(fn, { resolver, maxSize })`：缓存 `fn` 的结果，缓存键默认取第一个参数，或由 `resolver(...args)` 计算；`maxSize` 限制缓存条目数，超出时淘汰最久未使用的一项；命中后应刷新该项的使用顺序。说明缓存 Promise、`this` 依赖与可变参数键的注意点。
+
+<details>
+<summary>展开参考答案与解析</summary>
+
+用 `Map` 的插入顺序实现 LRU：命中时先 `delete` 再 `set` 把该项移到队尾，超限时删掉队首（`Map` 迭代的第一个键，即最久未用）。键由 `resolver` 决定，默认只取第一个参数。
+
+### 参考实现
+
+```js
+function memoize(fn, { resolver, maxSize = Infinity } = {}) {
+  if (typeof fn !== 'function') throw new TypeError('fn must be a function')
+  const cache = new Map()
+
+  function memoized(...args) {
+    const key = resolver ? resolver(...args) : args[0]
+    if (cache.has(key)) {
+      const value = cache.get(key)
+      cache.delete(key)
+      cache.set(key, value)
+      return value
+    }
+    const value = fn.apply(this, args)
+    cache.set(key, value)
+    if (cache.size > maxSize) {
+      cache.delete(cache.keys().next().value)
+    }
+    return value
+  }
+
+  memoized.cache = cache
+  return memoized
+}
+```
+
+### 边界与易错点
+
+- 默认键只取第一个参数；多参数或对象参数应自定义 `resolver`。对象键按引用判定，内容相同但引用不同会各自缓存，需要时可序列化或使用其他等同策略并在注释中说明代价。
+- 只对纯函数安全：依赖外部可变状态或参数以外输入的函数会返回陈旧值。`this` 依赖的函数，缓存键应包含 `this` 或避免共用缓存。
+- 若 `fn` 返回 Promise，失败也会被缓存；不希望缓存失败时可在写入前 `Promise.resolve(value).catch(() => cache.delete(key))` 再返回该 Promise。
+- `maxSize` 为 0 应视为禁用缓存；`Infinity` 不淘汰。`Map.keys().next().value` 取的是最久未使用的键。
+- 命中路径只做 O(1) 的 Map 操作；总空间受 `maxSize` 约束。
+
+### 追问
+
+- **如何避免缓存被拒绝的 Promise？** 在写入缓存前先处理拒绝分支，或在失败时移除对应键；同时让调用方拿到原始 Promise，不要吞掉错误。
+- **如何加 TTL？** 存 `{ value, expireAt }`，读取时校验过期并删除。
+
+</details>
+
+---
+
+## 168. 实现 `usePrevious`
+
+<!-- question: {"category":"react","type":"coding","difficulty":"basic","tags":["React","Hook","ref"],"estimatedMinutes":8} -->
+
+实现 `usePrevious(value)`：返回上一次**已提交**渲染中的 `value`，首次渲染返回 `undefined`。说明为什么用 ref 而不是 state，以及在 render 阶段直接写 ref 为什么是错误的。
+
+<details>
+<summary>展开参考答案与解析</summary>
+
+用 `useRef` 保存上一值，在 `useEffect` 中更新它。effect 在提交之后运行，因此 render 阶段读到的是上一次提交的值，render 保持纯净；ref 变化不触发重渲染。
+
+### 参考实现
+
+```jsx
+import { useEffect, useRef } from 'react'
+
+function usePrevious(value) {
+  const ref = useRef()
+  useEffect(() => {
+    ref.current = value
+  }, [value])
+  return ref.current
+}
+```
+
+### 边界与易错点
+
+- 首次渲染 `ref.current` 为 `undefined`；之后每次值变化并提交后，下一次渲染读到上一次的 `value`。
+- “上一次”指上一次**提交**，不是上一次 render 调用。并发渲染下被丢弃的 render 不会写 ref，因此不会污染结果。
+- 不要在 render 里直接 `ref.current = value` 再返回旧值：那是渲染期副作用，违反纯净约束，可能在并发特性下产生不一致。Strict Mode 会额外执行一次 effect 的 setup/cleanup，但赋值幂等，结果一致。
+- 适用于比较前后值触发副作用、判断动画方向等；不要用它去“派生”本可由 props/state 直接算出的值。
+
+### 追问
+
+- **如何记录“上一次非空值”？** 在 effect 中按条件更新 ref，或用多个 ref 分字段记录。
+- **为什么不用 `useState` 保存上一值？** 会多触发一次渲染，且引入不必要的更新循环；ref 不引起渲染。
+
+</details>
+
+---
+
+## 169. 实现 `useUpdateEffect`
+
+<!-- question: {"category":"react","type":"coding","difficulty":"intermediate","tags":["React","Hook","Effect"],"estimatedMinutes":10} -->
+
+实现 `useUpdateEffect(effect, deps)`：行为与 `useEffect` 相同，但跳过首次挂载，只在依赖更新时执行。说明如何用 ref 判断首次，以及在 Strict Mode 下可能出现的偏差。
+
+<details>
+<summary>展开参考答案与解析</summary>
+
+用一个 ref 标记是否已挂载：首次 effect 运行时只把标记置位并返回，之后每次依赖变化再执行真正的 `effect`，并透传其清理函数。
+
+### 参考实现
+
+```jsx
+import { useEffect, useRef } from 'react'
+
+function useUpdateEffect(effect, deps) {
+  const mounted = useRef(false)
+
+  useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true
+      return undefined
+    }
+    return effect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps)
+}
+```
+
+### 边界与易错点
+
+- `effect` 的返回值（清理函数）需原样透传给 `useEffect`，保持与 `useEffect` 一致的契约。
+- Strict Mode（开发）会在挂载时额外执行一次 setup/cleanup：首次 setup 置位后，清理不重置标记，第二次 setup 会认为“已更新”而执行 `effect`。也就是说开发环境下首次挂载可能触发一次该 effect；生产构建不会。关键清理逻辑不要只依赖这个模式。
+- `deps` 传数组，遵循 `useEffect` 规则；传空数组时除首次（被跳过）外不会再执行。`effect` 缺依赖时应有明确意图，必要时加规则豁免注释。
+- ref 的更新不触发渲染，因此不会影响本次渲染输出。
+
+### 追问
+
+- **如何在 Strict Mode 下也精确跳过首次？** 仅靠 ref 难以区分“双调用重挂载”和真正更新；可接受生产语义，或在测试环境关闭 Strict Mode。
+- **和 `usePrevious` 组合？** 可基于比较前后 deps 值决定是否执行，但通常不需要，标记位已足够。
+
+</details>
+
+---
+
+## 170. 实现 `useInterval`
+
+<!-- question: {"category":"react","type":"coding","difficulty":"intermediate","tags":["React","Hook","interval","闭包"],"estimatedMinutes":10} -->
+
+实现 `useInterval(callback, delay)`：按 `delay` 毫秒重复执行**最新**的 `callback`；`delay` 为 `null` 时暂停，恢复或改变数值时重新计时。说明它如何避免 stale closure，以及清理时机。
+
+<details>
+<summary>展开参考答案与解析</summary>
+
+把最新的 callback 放进 ref 并单独用一个 effect 更新它，真正创建 `setInterval` 的 effect 只依赖 `delay`：定时器回调读取 `savedCallback.current()`。这样既不会因 callback 变化而重建定时器，也不会读到旧闭包。
+
+### 参考实现
+
+```jsx
+import { useEffect, useRef } from 'react'
+
+function useInterval(callback, delay) {
+  const savedCallback = useRef(callback)
+
+  useEffect(() => {
+    savedCallback.current = callback
+  }, [callback])
+
+  useEffect(() => {
+    if (delay === null) return undefined
+    const id = setInterval(() => savedCallback.current(), delay)
+    return () => clearInterval(id)
+  }, [delay])
+}
+```
+
+### 边界与易错点
+
+- 定时器 effect 只依赖 `delay`，`callback` 更新不会重建定时器，避免每次渲染都清建；回调通过 ref 读取最新实现，规避 stale closure。
+- `delay` 为 `null` 时不建立定时器即可暂停；从 `null` 变为数值、或数值变化都会重建并重新计时（不会立即执行）。
+- 清理在 `delay` 变化或卸载时执行；`setInterval` 不接受回调返回值作为清理函数，必须显式 `clearInterval`。
+- 定时器受后台节流影响不保证精确；回调抛错不会停止后续触发（但会持续报错），必要时在回调内 `try/catch`。Strict Mode 下会建立/清理两次，最终只保留一个有效定时器。
+
+### 追问
+
+- **为什么不用 `requestAnimationFrame`？** rAF 与帧同步、在页面不可见时暂停，适合动画而非固定间隔轮询。
+- **如何立即执行一次再进入循环？** 首次手动调用 `savedCallback.current()`，或封装一个带 leading 的调度器。
+
+</details>
+
+---
+
+## 171. 手写 `DeepPartial` 与 `DeepReadonly`
+
+<!-- question: {"category":"typescript","type":"coding","difficulty":"advanced","tags":["TypeScript","映射类型","递归"],"estimatedMinutes":12} -->
+
+写出递归类型 `DeepPartial<T>` 与 `DeepReadonly<T>`：对嵌套对象逐层可选/只读，但对函数、数组、`Map`/`Set` 等给予合理语义。说明为什么不加条件分支时数组会被错误地当成对象映射，以及这些类型在运行时是否生效。
+
+<details>
+<summary>展开参考答案与解析</summary>
+
+用条件类型先分流：函数原样返回；数组映射为只读数组（保留元素可递归）；`Map`/`Set` 映射为只读视图；其余对象用映射类型逐键递归，`DeepPartial` 加 `?`、`DeepReadonly` 加 `readonly`。
+
+### 参考实现
+
+```ts
+type DeepPartial<T> = T extends (...args: never[]) => unknown
+  ? T
+  : T extends readonly (infer U)[]
+    ? readonly DeepPartial<U>[]
+    : T extends object
+      ? { [K in keyof T]?: DeepPartial<T[K]> }
+      : T
+
+type DeepReadonly<T> = T extends (...args: never[]) => unknown
+  ? T
+  : T extends Map<infer K, infer V>
+    ? ReadonlyMap<DeepReadonly<K>, DeepReadonly<V>>
+    : T extends Set<infer U>
+      ? ReadonlySet<DeepReadonly<U>>
+      : T extends readonly (infer U)[]
+        ? readonly DeepReadonly<U>[]
+        : T extends object
+          ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+          : T
+
+type Config = { theme: { color: string; size: number }; list: number[] }
+type Draft = DeepPartial<Config> // { theme?: { color?: string; size?: number }; list?: readonly (number | undefined)[] }
+```
+
+### 边界与易错点
+
+- 裸写 `{ [K in keyof T]?: DeepPartial<T[K]> }` 会把数组也当对象映射，得到“带可选数字下标”的错误类型；必须先判断 `readonly (infer U)[]` 分支。
+- `readonly U[]`（即 `ReadonlyArray`）表达只读，但会丢失元组长度；要精确保留元组需额外分支，或对数组使用映射类型逐键处理。
+- `Date`、`RegExp`、`Promise` 等内建对象不应逐属性递归（会丢掉方法或语义），需要白名单透传；`Map`/`Set` 要用 `ReadonlyMap`/`ReadonlySet` 而非逐键映射。
+- `-?`、`-readonly` 可去除修饰符，`as` 可重映射键；深层递归可能触及编译器递归深度限制，复杂类型要拆分。
+- 这些类型只描述编译期结构：不会 `Object.freeze`、不校验、不阻止运行时修改。参考 [Mapped Types](https://www.typescriptlang.org/docs/handbook/2/mapped-types.html) 与 [修饰符](https://www.typescriptlang.org/docs/handbook/2/mapped-types.html#mapping-modifiers)。
+
+### 追问
+
+- **如何保留元组长度与元素顺序？** 用映射元组（对数组分支不折叠为 `U[]`）并在读取时区分元组与普通数组，代价是类型更复杂。
+- **`DeepPartial` 对已有可选属性？** 递归后可选属性仍可选；若不允许显式 `undefined`，可结合 `-?`/`Exclude` 精细控制。
+
+</details>
+
+---
+
+## 172. 相同请求合并（in-flight 去重）
+
+<!-- question: {"category":"javascript","type":"coding","difficulty":"advanced","tags":["JavaScript","请求","并发","缓存"],"estimatedMinutes":12} -->
+
+实现 `createRequestMerger(requestFn, { key })`：当相同 `key` 的请求正在进行时，复用同一个 in-flight Promise，不重复发起；请求 settle（成功或失败）后移除记录。要求 `requestFn` 的同步抛错也表现为拒绝，且不能因为清理而误删“更新的”请求记录。说明这与响应缓存的区别，以及失败如何被多个调用方共享。
+
+<details>
+<summary>展开参考答案与解析</summary>
+
+维护一张 `key → Promise` 的 in-flight 表。发起前先查表：命中就返回同一个 Promise；未命中则用 `Promise.resolve().then(() => requestFn(...))` 包装，保证同步抛错也变成拒绝，并在任何 `.then` 注册前把 Promise 存入表，避免同步重入漏合并。`finally` 里比较身份再删除，防止旧请求删掉新记录。
+
+### 参考实现
+
+```js
+function createRequestMerger(requestFn, { key = (...args) => JSON.stringify(args) } = {}) {
+  const inflight = new Map()
+
+  return function merged(...args) {
+    const cacheKey = key(...args)
+    const existing = inflight.get(cacheKey)
+    if (existing) return existing
+
+    const promise = Promise.resolve()
+      .then(() => requestFn(...args))
+      .finally(() => {
+        if (inflight.get(cacheKey) === promise) inflight.delete(cacheKey)
+      })
+
+    inflight.set(cacheKey, promise)
+    return promise
+  }
+}
+```
+
+### 设计要点与边界
+
+- 只合并“同时进行”的调用；settle 后立即移除记录，下一次是新请求（不是缓存）。需要跨时间复用得另加 TTL/LRU 响应缓存，两者语义不同。
+- 失败不缓存，但并发复用者会一起失败：多个调用方共享同一个已拒绝的 Promise。若不希望共享失败，需要有重试或让后续调用重新发起（但当前并发者仍共享同一次失败）。
+- 默认 `key` 用 `JSON.stringify(args)`：对参数**顺序**敏感（`{a,b}` 与 `{b,a}` 视为不同），对象内容相同则相同；`FormData`、函数、循环引用无法序列化，应自定义 `key` 或跳过合并。非 GET 请求合并不安全，需按业务决定。
+- `Promise.resolve().then(...)` 让 `requestFn` 的同步异常也变成拒绝；在存入表之前不 `await`，避免并发重入时漏合并。
+- `finally` 的身份比较与 Map 引用释放共同防止“误删”和内存泄漏。
+- 该模式即 Go 的 `singleflight`（请求合并/去重）：并发相同 key 只执行一次，结果广播给所有调用方。
+
+### 追问
+
+- **为什么不用一个结果缓存？** 响应缓存跨时间复用已完成结果，语义是“缓存”；singleflight 只解决并发重复，settle 后即释放。
+- **缓存过期瞬间的惊群怎么办？** 把 singleflight 与 TTL 组合：过期时只放一个真实请求穿透，其余复用。
+- **取消/超时如何处理？** 复用同一个 Promise 意味着调用方共享取消；要独立取消需引用计数并暴露一个 manager，或把同一个 `AbortSignal` 传给底层请求。
+
+</details>
+
+---
+
+## 173. 编排有依赖的接口（无依赖并行 + 依赖串行）
+
+<!-- question: {"category":"engineering","type":"coding","difficulty":"advanced","tags":["JavaScript","并发","依赖","调度"],"estimatedMinutes":15} -->
+
+实现 `runTasks(tasks)`，`tasks` 是 `{ id, deps, run }` 数组：`run(context)` 返回 Promise，`context` 只包含已声明依赖的结果。没有依赖的任务并行执行，依赖完成后再执行；每个任务最多执行一次；检测重复 `id`、未知依赖与循环依赖并拒绝；返回 `{ [id]: result }`。
+
+<details>
+<summary>展开参考答案与解析</summary>
+
+用记忆化的 `execute(id)` 把每个任务的结果缓存成 Promise，`started` 表保证只执行一次；任务内部先 `Promise.all` 并行等待所有依赖，再用依赖结果构建 `context` 运行。用 `visiting` 集合在同步构图阶段检测环，重复 `id` 与未知依赖在开始前报错。
+
+### 参考实现
+
+```js
+function runTasks(tasks) {
+  const byId = new Map()
+  for (const task of tasks) {
+    if (byId.has(task.id)) return Promise.reject(new Error(`duplicate task id: ${task.id}`))
+    byId.set(task.id, task)
+  }
+
+  const results = new Map()
+  const started = new Map()
+  const visiting = new Set()
+
+  const execute = (id) => {
+    if (started.has(id)) return started.get(id)
+    const task = byId.get(id)
+    if (!task) return Promise.reject(new Error(`unknown dependency: ${id}`))
+    if (visiting.has(id)) return Promise.reject(new Error(`circular dependency: ${id}`))
+
+    visiting.add(id)
+    const deps = task.deps ?? []
+    const promise = Promise.all(deps.map((dep) => execute(dep))).then(async (depResults) => {
+      const context = Object.fromEntries(deps.map((dep, index) => [dep, depResults[index]]))
+      const result = await task.run(context)
+      results.set(id, result)
+      return result
+    })
+    started.set(id, promise)
+    visiting.delete(id)
+    return promise
+  }
+
+  return Promise.all(tasks.map((task) => execute(task.id).then((result) => [task.id, result]))).then(
+    (entries) => Object.fromEntries(entries),
+  )
+}
+```
+
+### 设计要点与边界
+
+- 无依赖的任务因为各自调用 `execute` 而并行；有依赖的任务在其依赖的 Promise 上串行等待。`started` 缓存 Promise 保证每个任务只执行一次，菱形依赖不会重复执行。
+- `visiting` 在构建 Promise 的同步阶段检测环：若某 `id` 在自身依赖链上被再次请求即判为循环依赖；`started` 在构建后立即写入，因此后续调用会短路，不会误报。
+- 任一任务拒绝会让依赖它的链与整体 Promise 拒绝；已并行的任务不会被取消，未调度到的任务不再启动。需要取消时给 `run` 传 `AbortSignal` 并让任务合作响应。
+- `context` 只暴露显式声明的依赖结果，避免“隐式读取全局已完成结果”造成耦合。依赖编排与并发上限正交，需要限制在途数量时另加信号量。
+- 复杂度：构图 O(V+E)，总耗时由依赖关键路径与最大并行度决定，而不是简单的任务数之和。
+
+### 追问
+
+- **如何限制同时运行的任务数？** 在调度层加一个信号量（并发数 N），与依赖关系独立；也可按拓扑层分组执行。
+- **依赖失败要整体失败还是部分降级？** 取决于业务：整体 `Promise.all` 是 fail-fast；要部分降级需给每个分支 `catch` 出默认值并记录诊断。
+
+</details>
+
+---
+
+## 174. 统一多来源接口的数据结构（适配器 + 字段映射）
+
+<!-- question: {"category":"engineering","type":"coding","difficulty":"intermediate","tags":["JavaScript","数据转换","适配器","DTO"],"estimatedMinutes":12} -->
+
+来自系统 A 与系统 B 的同一业务对象字段命名与类型不一致：A 用 `snake_case`（`user_id` 为 number），B 用 `camelCase`/中文键（`id` 为 string，`email` 可能缺失）。实现一组适配器，把不同来源统一为内部模型 `{ id: string; name: string; email: string; avatar: string }`。要求不修改原始数据、对同一输入反复调用结果一致。
+
+<details>
+<summary>展开参考答案与解析</summary>
+
+为每个来源写一个显式适配器，把“接口语言”翻译成内部模型。用只读的 `pick` 按候选键顺序取第一个非空值，显式处理类型规整（id 统一转 string）与缺失字段的默认值。业务代码只依赖统一模型，新增来源只加一个适配器。
+
+### 参考实现
+
+```js
+function pick(record, ...keys) {
+  for (const key of keys) {
+    const value = record?.[key]
+    if (value !== undefined && value !== null && value !== '') return value
+  }
+  return undefined
+}
+
+const adaptFromA = (raw) => ({
+  id: String(pick(raw, 'user_id', 'id') ?? ''),
+  name: String(pick(raw, 'full_name', 'name') ?? ''),
+  email: String(pick(raw, 'mail', 'email') ?? ''),
+  avatar: String(pick(raw, 'profile_pic', 'avatar_url', 'avatar') ?? ''),
+})
+
+const adaptFromB = (raw) => ({
+  id: String(pick(raw, 'id', 'userId', '用户ID') ?? ''),
+  name: String(pick(raw, 'nick', 'nickname', '昵称') ?? ''),
+  email: String(pick(raw, 'mail', 'email') ?? ''),
+  avatar: String(pick(raw, 'avatar_url', 'avatar') ?? ''),
+})
+
+const adapters = { A: adaptFromA, B: adaptFromB }
+
+function normalizeUser(raw, source) {
+  const adapter = adapters[source]
+  if (!adapter) throw new Error(`unknown source: ${source}`)
+  return adapter(raw)
+}
+```
+
+### 设计要点与边界
+
+- 适配层把外部“接口语言”收敛为内部“领域模型”，让业务代码只依赖统一形状；新增来源只增加一个适配器，符合开闭原则。
+- 显式列出允许的候选键，不要把用户提供的点分路径映射到任意属性；中文键同样显式映射。这既保证可读性，也避免原型污染类问题（见第 153 题）。
+- 类型规整：id 统一为 string，避免大整数在 number 下的精度丢失（见第 97 题）；缺失值是返回空串还是保留 `undefined` 要与 UI 约定一致。
+- 纯函数保证幂等：只读取 `raw`、返回新对象，不修改输入；对同一 `raw` 反复调用结果一致。不要用递归 `Object.assign` 合并不可信对象，也不要用 `as` 断言替代运行时校验（见第 176 题）。
+- 转换可能成为热路径开销：在数据进入 store/缓存时一次性转换，而不是每次渲染都转换。
+
+### 追问
+
+- **多个来源拼装一个结果怎么办？** 用“聚合装配器”组合多个 `normalize*` 的输出，把脱敏、文案、单位换算等语义加工集中在一处，比机械映射更可维护。
+- **如何发现新增字段被静默丢弃？** 用显式模型配合契约测试/快照；或在边界引入 schema 校验，缺字段时告警（软失败）。
+
+</details>
+
+---
+
+## 175. 递归转换键名风格（`snake_case` ↔ `camelCase`）
+
+<!-- question: {"category":"javascript","type":"coding","difficulty":"intermediate","tags":["JavaScript","数据转换","递归"],"estimatedMinutes":12} -->
+
+实现 `convertKeys(input, transform)`：递归转换普通对象与数组内所有对象的键名，例如 `snakeToCamel('user_id')` → `userId`、`camelToSnake('userName')` → `user_name`。要求不修改原对象，`Date`/`RegExp`/`Map`/`Set`/函数/类实例以及数组元素值原样保留。说明键名冲突与缩写词带来的边界。
+
+<details>
+<summary>展开参考答案与解析</summary>
+
+只用递归处理“普通对象”和数组：数组 `map` 递归元素，普通对象用 `Object.entries` 逐键改名并递归值，其它类型直接返回。用原型判断普通对象，避免误伤 `Date`、类实例等会丢失原型/方法的值。
+
+### 参考实现
+
+```js
+const isPlainObject = (value) =>
+  value !== null &&
+  typeof value === 'object' &&
+  (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)
+
+const snakeToCamel = (key) => key.replace(/[_-]+([a-zA-Z0-9])/g, (_, char) => char.toUpperCase())
+
+const camelToSnake = (key) => key.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase()
+
+function convertKeys(input, transform) {
+  if (Array.isArray(input)) return input.map((item) => convertKeys(item, transform))
+  if (!isPlainObject(input)) return input
+  const output = {}
+  for (const [key, value] of Object.entries(input)) {
+    output[transform(key)] = convertKeys(value, transform)
+  }
+  return output
+}
+```
+
+### 边界与易错点
+
+- 只递归普通对象与数组；`Date`/`RegExp`/`Map`/`Set`/函数/类实例必须原样返回，否则会丢失原型、方法或内部状态。`typeof x === 'object'` 不足以判定普通对象。
+- 返回全新结构，不修改输入；数组返回新数组。键名冲突（如同时存在 `user_id` 与 `userId`）会互相覆盖，遇到时应检测并报错或定义优先级。
+- 缩写词存在歧义：`HTTPResponse`、`userID` 的正则转换结果取决于约定，单向转换可能无法完美还原；应明确规则并加测试（如 `userID` → `user_id` 还是 `user_i_d`）。
+- 含中文、前导数字或特殊字符的键不宜强转，可原样保留。深层结构与循环引用需额外的 `seen`（`WeakMap`）保护或明确不支持。
+- 复杂度 O(节点数)。若要在类型层保留转换后的键，可结合模板字面量类型与递归映射类型（见第 154、171 题），运行时仍按实际字符串处理。
+
+### 追问
+
+- **如何双向无损转换？** 单向命名转换本身有损，通常只从接口格式转入内部格式；需要回传时在请求适配器里按后端的命名约定显式生成。
+- **遇到循环引用怎么办？** 传入 `WeakMap` 记录已访问对象，命中直接返回，避免无限递归。
+
+</details>
+
+---
+
+## 176. 在边界解析不可信响应
+
+<!-- question: {"category":"typescript","type":"coding","difficulty":"intermediate","tags":["TypeScript","运行时校验","unknown","边界"],"estimatedMinutes":12} -->
+
+`await response.json()` 的类型是 `any`，应视为不可信的 `unknown`。实现一个不依赖第三方库的最小运行时校验，把响应解析为 `{ id: string; name: string; tags: string[] }`，非法时抛出带原因的 `ParseError`。说明为什么不能写 `as User`，以及为什么应在边界一次解析而不是在组件里重复校验。
+
+<details>
+<summary>展开参考答案与解析</summary>
+
+先把 `unknown` 收窄为记录类型（用类型守卫而非 `as` 断言），再逐字段校验类型，全部通过后返回一个只含声明字段的新对象。`as` 只是编译期承诺，运行时不做任何检查；边界解析在数据进入系统时立即失败，错误位置精确。
+
+### 参考实现
+
+```ts
+type User = { id: string; name: string; tags: string[] }
+
+class ParseError extends Error {}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function parseUser(input: unknown): User {
+  if (!isRecord(input)) throw new ParseError('response must be an object')
+  const { id, name, tags } = input
+  if (typeof id !== 'string') throw new ParseError('id must be a string')
+  if (typeof name !== 'string') throw new ParseError('name must be a string')
+  if (!Array.isArray(tags) || tags.some((tag) => typeof tag !== 'string')) {
+    throw new ParseError('tags must be a string array')
+  }
+  return { id, name, tags }
+}
+
+async function getUser(id: string): Promise<User> {
+  const response = await fetch(`/api/user/${id}`)
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  return parseUser(await response.json())
+}
+```
+
+### 设计要点与边界
+
+- `as User` 是编译期断言，运行时完全不检查：接口字段改名或类型变化会静默流入并在远处崩溃。边界解析则“fail fast”，把问题挡在数据入口。
+- 校验后返回**新对象**（只含声明字段），剥离多余或未知字段，避免未校验数据扩散；也可改为返回 `{ success, data | error }` 由调用方决定。
+- 不要在下游组件里重复 parse：那既掩盖了真正的边界漏洞，又在渲染路径付出开销。schema 撒谎时应修正 schema，或找到绕过解析的路径（缓存、`localStorage`、mock、`as`）。
+- 用户响应、`localStorage`、URL 参数、`postMessage` 都是不可信边界，都应解析。生产可做软校验：开发环境抛错，生产记录但不崩，用于发现契约漂移（[Parse, don't cast](https://typescript.odone.me/parse-dont-cast-again/)）。
+- 引入 zod/valibot 可减少样板，原理相同；纯结构校验无法覆盖业务不变量（如状态机合法性），需另加业务校验。
+- 用 `unknown` 而非 `any` 作为入口类型，强制先收窄再使用。
+
+### 追问
+
+- **返回 `Result` 还是抛错？** 边界可抛错并用 Error Boundary 兜底，或 `safeParse` 返回结果对象；避免用可选链把错误静默成空白 UI。
+- **和 TypeScript 类型的关系？** 校验把 `unknown` 收窄为具体类型；也可从 schema 反推类型（如 `z.infer`），让“类型”与“校验”共享单一事实来源。
 
 </details>
 
