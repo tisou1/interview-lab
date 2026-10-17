@@ -1,4 +1,4 @@
-import{it as e,rt as t,x as n,y as r}from"./index-QWoMm62n.js";var i={html:`<h1>前端技术深度进阶路线（12 周 · 求职版 · 最终整合）</h1>
+import{fn as e,pn as t,x as n,y as r}from"./index-Cc-zlUpr.js";var i={html:`<h1>前端技术深度进阶路线（12 周 · 求职版 · 最终整合）</h1>
 <blockquote>
 <p>适用对象：3–4 年前端经验，以 React / TypeScript 为主，能独立完成常规业务，但知识较零散，希望补足原理、工程深度、问题诊断与技术表达。</p>
 <p>建议投入：每周 12–15 小时。在职可安排工作日每天 1–1.5 小时，周末共 5–7 小时。</p>
@@ -196,7 +196,7 @@ import{it as e,rt as t,x as n,y as r}from"./index-QWoMm62n.js";var i={html:`<h1>
 </ul>
 <h2>动手任务</h2>
 <p>建立：</p>
-<pre><code class="language-text">playground/
+<pre><code class="hljs language-text">playground/
   closure/
   prototype/
   event-loop/
@@ -277,11 +277,11 @@ import{it as e,rt as t,x as n,y as r}from"./index-QWoMm62n.js";var i={html:`<h1>
 </ul>
 <h2>工程原则</h2>
 <p>类型的目标是表达业务约束，而不是炫技。下面这种能排除非法状态的模型，通常比 20 层 conditional type 更有价值：</p>
-<pre><code class="language-ts">type RequestState&#x3C;T> =
-  | { status: 'idle' }
-  | { status: 'loading' }
-  | { status: 'success'; data: T }
-  | { status: 'error'; error: ApiError }
+<pre><code class="hljs language-ts"><span class="hljs-keyword">type</span> <span class="hljs-title class_">RequestState</span>&#x3C;T> =
+  | { <span class="hljs-attr">status</span>: <span class="hljs-string">'idle'</span> }
+  | { <span class="hljs-attr">status</span>: <span class="hljs-string">'loading'</span> }
+  | { <span class="hljs-attr">status</span>: <span class="hljs-string">'success'</span>; <span class="hljs-attr">data</span>: T }
+  | { <span class="hljs-attr">status</span>: <span class="hljs-string">'error'</span>; <span class="hljs-attr">error</span>: <span class="hljs-title class_">ApiError</span> }
 </code></pre>
 <h2>动手任务</h2>
 <ol>
@@ -309,7 +309,7 @@ import{it as e,rt as t,x as n,y as r}from"./index-QWoMm62n.js";var i={html:`<h1>
 <hr>
 <h1>8. 第 4 周：React Rendering 心智模型</h1>
 <h2>核心主线</h2>
-<pre><code class="language-text">State / Props / Context change
+<pre><code class="hljs language-text">State / Props / Context change
              ↓
           Render
              ↓
@@ -339,7 +339,7 @@ import{it as e,rt as t,x as n,y as r}from"./index-QWoMm62n.js";var i={html:`<h1>
 </ul>
 <h2>动手任务</h2>
 <p>建立 <code>react-render-lab</code>：</p>
-<pre><code class="language-text">01-state-snapshot
+<pre><code class="hljs language-text">01-state-snapshot
 02-update-queue
 03-batching
 04-key-and-reset
@@ -364,7 +364,7 @@ import{it as e,rt as t,x as n,y as r}from"./index-QWoMm62n.js";var i={html:`<h1>
 <hr>
 <h1>9. 第 5 周：State / Effect / Context 设计</h1>
 <h2>先分类状态</h2>
-<pre><code class="language-text">State
+<pre><code class="hljs language-text">State
 ├── Local UI State       → useState / useReducer
 ├── URL State            → router / search params
 ├── Server State         → request cache
@@ -455,14 +455,14 @@ import{it as e,rt as t,x as n,y as r}from"./index-QWoMm62n.js";var i={html:`<h1>
 <p>掌握 nested routes、layout/outlet、params/search params、lazy route、route-level error 和路由保护。筛选、分页、排序等需要分享或刷新保留的状态，优先评估 URL。</p>
 <h2>Authentication</h2>
 <p>设计完整生命周期：</p>
-<pre><code class="language-text">Login → Session → Expiration/Refresh → 401 coordination → Retry or Logout
+<pre><code class="hljs language-text">Login → Session → Expiration/Refresh → 401 coordination → Retry or Logout
 </code></pre>
 <p>比较 Cookie session 与 token 方案，不机械地认为 JWT 一定更先进。讨论：XSS、CSRF、HttpOnly、Secure、SameSite、过期、撤销、多请求同时 401、跨标签页同步。</p>
 <h2>Authorization / RBAC</h2>
 <p>把权限表达为能力：</p>
-<pre><code class="language-ts">can('project:create')
-can('project:update')
-can('user:delete')
+<pre><code class="hljs language-ts"><span class="hljs-title function_">can</span>(<span class="hljs-string">'project:create'</span>)
+<span class="hljs-title function_">can</span>(<span class="hljs-string">'project:update'</span>)
+<span class="hljs-title function_">can</span>(<span class="hljs-string">'user:delete'</span>)
 </code></pre>
 <p>避免页面到处出现 <code>user.role === 'admin'</code>。前端权限只改善体验，服务端仍必须执行最终鉴权。</p>
 <h2>动手任务</h2>
@@ -493,7 +493,7 @@ can('user:delete')
 <h1>12. 第 8 周：工程化与测试</h1>
 <h2>构建链路</h2>
 <p>建立下面的整体模型：</p>
-<pre><code class="language-text">Source → Resolve → Load → Transform → Dependency Graph
+<pre><code class="hljs language-text">Source → Resolve → Load → Transform → Dependency Graph
        → Bundle → Code Split → Tree Shake → Minify → Output
 </code></pre>
 <p>重点掌握：</p>
@@ -536,7 +536,7 @@ can('user:delete')
 <hr>
 <h1>13. 第 9 周：性能分析与优化</h1>
 <h2>正确流程</h2>
-<pre><code class="language-text">定义用户场景和指标
+<pre><code class="hljs language-text">定义用户场景和指标
       ↓
 记录可复现基线
       ↓
@@ -625,14 +625,14 @@ can('user:delete')
 <h1>15. 第 11 周：中型项目架构与前端系统设计</h1>
 <h2>主项目架构整理</h2>
 <p>不要继续无止境加功能，开始整理边界：</p>
-<pre><code class="language-text">src/
+<pre><code class="hljs language-text">src/
   app/             # 启动、providers、全局配置
   routes/          # 路由入口
   features/        # auth/project/task/user 等业务模块
   shared/          # 稳定、跨业务复用的组件与工具
 </code></pre>
 <p>feature 内可按需包含：</p>
-<pre><code class="language-text">features/project/
+<pre><code class="hljs language-text">features/project/
   api/
   components/
   hooks/
@@ -641,7 +641,7 @@ can('user:delete')
 </code></pre>
 <p>目录不是目的，重点是 cohesion、coupling、dependency direction 和 boundary。</p>
 <p>数据访问建议保持清晰链路：</p>
-<pre><code class="language-text">Component → Query/Mutation Hook → Domain API Service → HTTP Client
+<pre><code class="hljs language-text">Component → Query/Mutation Hook → Domain API Service → HTTP Client
 </code></pre>
 <p>不要让原始 <code>fetch/axios</code> 和错误格式转换散落在几十个组件中。</p>
 <h2>系统设计练习</h2>
@@ -709,7 +709,7 @@ can('user:delete')
 <li>一次失败方案及后续取舍。</li>
 </ol>
 <p>每个故事按 STAR + 技术决策组织：</p>
-<pre><code class="language-text">背景与约束
+<pre><code class="hljs language-text">背景与约束
 问题和证据
 候选方案
 选择与原因
@@ -747,7 +747,7 @@ can('user:delete')
 <h2>17. 贯穿 12 周的主项目：TeamFlow</h2>
 <p>定位：简化版团队协作 SaaS。不要追求功能数量，重点展示状态设计、数据一致性、权限、性能、测试和可靠性。</p>
 <h2>领域模型</h2>
-<pre><code class="language-text">User
+<pre><code class="hljs language-text">User
 Organization
 Workspace
 Project
@@ -789,7 +789,7 @@ Activity
 <li>Next.js SSR/streaming/server-client boundary：仅目标岗位明显需要时添加</li>
 </ul>
 <h2>推荐仓库文档</h2>
-<pre><code class="language-text">docs/
+<pre><code class="hljs language-text">docs/
   baseline.md
   learning-log.md
   ARCHITECTURE.md
@@ -814,7 +814,7 @@ Activity
 <li>service worker 生命周期、执行上下文隔离、最小权限</li>
 </ul>
 <p>核心流程：</p>
-<pre><code class="language-text">网页划词 → Selection API → Content Script → 词义浮层
+<pre><code class="hljs language-text">网页划词 → Selection API → Content Script → 词义浮层
        → Message Passing → Background → IndexedDB
        → Vocabulary Manager → Review
 </code></pre>
@@ -896,7 +896,7 @@ Activity
 <hr>
 <h2>21. 学习与面试复盘模板</h2>
 <h3>单个知识点</h3>
-<pre><code class="language-md">## 问题
+<pre><code class="hljs language-md"><span class="hljs-section">## 问题</span>
 
 我的原始理解：
 
@@ -911,48 +911,48 @@ Activity
 如何关联到项目：
 </code></pre>
 <h3>每周复盘</h3>
-<pre><code class="language-md"># Week N Review
+<pre><code class="hljs language-md"><span class="hljs-section"># Week N Review</span>
 
-## 本周解决的三个问题
-1.
-2.
-3.
+<span class="hljs-section">## 本周解决的三个问题</span>
+<span class="hljs-bullet">1.</span>
+<span class="hljs-bullet">2.</span>
+<span class="hljs-bullet">3.</span>
 
-## 可验证产出
-- 代码：
-- 测试/性能记录：
-- 文档/图：
+<span class="hljs-section">## 可验证产出</span>
+<span class="hljs-bullet">-</span> 代码：
+<span class="hljs-bullet">-</span> 测试/性能记录：
+<span class="hljs-bullet">-</span> 文档/图：
 
-## 我现在能讲清楚什么
--
+<span class="hljs-section">## 我现在能讲清楚什么</span>
+<span class="hljs-bullet">-</span>
 
-## 仍然模糊的地方
--
+<span class="hljs-section">## 仍然模糊的地方</span>
+<span class="hljs-bullet">-</span>
 
-## 一道面试题的完整回答
+<span class="hljs-section">## 一道面试题的完整回答</span>
 问题：
 结论：
 原理：
 例子：
 边界与取舍：
 
-## 下周只做的三件事
-1.
-2.
-3.
+<span class="hljs-section">## 下周只做的三件事</span>
+<span class="hljs-bullet">1.</span>
+<span class="hljs-bullet">2.</span>
+<span class="hljs-bullet">3.</span>
 </code></pre>
 <h3>面试后 30 分钟复盘</h3>
-<pre><code class="language-md">## 问题
+<pre><code class="hljs language-md"><span class="hljs-section">## 问题</span>
 
-## 我的原回答
+<span class="hljs-section">## 我的原回答</span>
 
-## 哪部分没有回答好
+<span class="hljs-section">## 哪部分没有回答好</span>
 
-## 经查证后的正确理解
+<span class="hljs-section">## 经查证后的正确理解</span>
 
-## 最小 Demo / 工具证据
+<span class="hljs-section">## 最小 Demo / 工具证据</span>
 
-## 如何关联自己的项目
+<span class="hljs-section">## 如何关联自己的项目</span>
 </code></pre>
 <hr>
 <h2>22. 根据真实 JD 动态调整</h2>
@@ -1220,4 +1220,4 @@ Activity
 <p>最终目标不是成为“背过 React 源码的人”，而是成为：</p>
 <blockquote>
 <p>能建立模型、能用证据定位问题、能做工程取舍，也能把这些讲清楚的前端工程师。</p>
-</blockquote>`},a=t();function o(){return(0,a.jsxs)(a.Fragment,{children:[(0,a.jsx)(n,{eyebrow:`A PATH TO DEEPER UNDERSTANDING`,title:`12 周，走得更深入。`,description:`从执行模型到项目架构，把原理学习、动手实践与求职表达连起来。`}),(0,a.jsx)(`article`,{className:`${e.card} ${e.roadmap}`,children:(0,a.jsx)(r,{html:i.html})})]})}export{o as default};
+</blockquote>`},a=e();function o(){return(0,a.jsxs)(a.Fragment,{children:[(0,a.jsx)(n,{eyebrow:`A PATH TO DEEPER UNDERSTANDING`,title:`12 周，走得更深入。`,description:`从执行模型到项目架构，把原理学习、动手实践与求职表达连起来。`}),(0,a.jsx)(`article`,{className:`${t.card} ${t.roadmap}`,children:(0,a.jsx)(r,{html:i.html})})]})}export{o as default};
