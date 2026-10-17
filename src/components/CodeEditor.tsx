@@ -27,6 +27,7 @@ import { tags } from '@lezer/highlight'
 import { type CodeLanguage } from '../lib/codeLanguage'
 
 const languageLoaders: Record<CodeLanguage, () => Promise<Extension>> = {
+  text: () => Promise.resolve([]),
   javascript: () => import('@codemirror/lang-javascript').then((module) => module.javascript()),
   typescript: () =>
     import('@codemirror/lang-javascript').then((module) => module.javascript({ typescript: true })),

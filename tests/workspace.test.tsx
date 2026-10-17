@@ -8,8 +8,24 @@ import { emptyData } from '../src/storage/validation'
 import type { Question } from '../src/types'
 
 vi.mock('../src/components/CodeEditor', () => ({
-  default: ({ ariaLabel }: { ariaLabel: string }) => (
-    <div role="textbox" aria-label={ariaLabel} data-testid="code-editor" />
+  default: ({
+    ariaLabel,
+    value,
+    language,
+    onChange,
+  }: {
+    ariaLabel: string
+    value: string
+    language: string
+    onChange: (value: string) => void
+  }) => (
+    <textarea
+      aria-label={ariaLabel}
+      data-testid="code-editor"
+      data-language={language}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
   ),
 }))
 const question: Question = {
@@ -83,20 +99,22 @@ function renderWith(candidate: Question) {
   return render(<Frame />)
 }
 describe('code input mode', () => {
-  it('defaults to the code editor for coding and debugging questions', async () => {
+  it('renders the editor by default for every question type', async () => {
     renderWith({ ...question, type: 'coding' })
     expect((await screen.findAllByTestId('code-editor')).length).toBeGreaterThan(0)
   })
-  it('defaults to the plain textarea for theory questions', () => {
+  it('uses plain text mode for theory questions', () => {
     renderWith(question)
-    expect(screen.queryAllByTestId('code-editor')).toHaveLength(0)
-    expect(screen.getByRole('textbox', { name: '回答草稿' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: '回答草稿' })).toHaveAttribute(
+      'data-language',
+      'text',
+    )
   })
-  it('lets the user switch modes manually', async () => {
-    renderWith(question)
-    fireEvent.click(screen.getByRole('button', { name: '代码模式' }))
-    expect((await screen.findAllByTestId('code-editor')).length).toBeGreaterThan(0)
-    fireEvent.click(screen.getByRole('button', { name: '文本模式' }))
-    expect(screen.queryAllByTestId('code-editor')).toHaveLength(0)
+  it('detects a code language for coding questions', () => {
+    renderWith({ ...question, type: 'coding', category: 'javascript' })
+    expect(screen.getByRole('textbox', { name: '回答草稿' })).toHaveAttribute(
+      'data-language',
+      'javascript',
+    )
   })
 })

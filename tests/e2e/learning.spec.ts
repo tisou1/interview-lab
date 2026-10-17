@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { readFileSync, writeFileSync } from 'node:fs'
 const storageKey = 'frontend-interview-lab:v1'
 
-// 代码题默认渲染 CodeMirror（contenteditable），其余题目是 textarea；草稿读写需要兼容两者。
+// 所有题目都用 CodeMirror 输入（contenteditable，非代码题为纯文本模式）；草稿读写按内容文本处理。
 const draftBox = (page: Page, fullscreen = false) =>
   page.getByRole('textbox', { name: fullscreen ? '全屏回答草稿' : '回答草稿', exact: true })
 
@@ -24,8 +24,8 @@ test('browse, search, reveal, rate, favorite and preserve hash route history', a
   await link.click()
   await expect(page).toHaveURL(/#\/questions\/\d+/)
   await expect(page.getByRole('button', { name: /查看参考答案/ })).toBeVisible()
-  // 收窄到主内容区：顶栏的主题选择器自身也带 aria-expanded。
-  await expect(page.locator('main [aria-expanded]')).toHaveCount(0)
+  // 用答案折叠按钮（aria-controls）判断答案是否展开，避开「代码语言」选择器自身的 aria-expanded。
+  await expect(page.locator('main [aria-controls]')).toHaveCount(0)
   await page.getByRole('button', { name: '收藏本题', exact: true }).click()
   await setDraft(page, '我的 React 回答')
   await page.getByRole('button', { name: /查看参考答案/ }).click()
@@ -77,8 +77,8 @@ test('mock hides answers, restores deadline, produces report and queues weak que
   await page.getByRole('button', { name: '不会', exact: true }).click()
   await page.getByRole('button', { name: '待复查', exact: true }).click()
   await expect(page.getByRole('button', { name: /查看参考答案/ })).toHaveCount(0)
-  // 收窄到主内容区：顶栏的主题选择器自身也带 aria-expanded。
-  await expect(page.locator('main [aria-expanded]')).toHaveCount(0)
+  // 用答案折叠按钮（aria-controls）判断答案是否展开，避开「代码语言」选择器自身的 aria-expanded。
+  await expect(page.locator('main [aria-controls]')).toHaveCount(0)
   await page.reload()
   expect(
     await page.evaluate(
