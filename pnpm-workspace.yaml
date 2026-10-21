@@ -1,4 +1,2 @@
 allowBuilds:
   esbuild: true
-storeDir: .cache/pnpm-store
-packageImportMethod: copy
