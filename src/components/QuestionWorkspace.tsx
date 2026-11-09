@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 import {
   categoryNames,
   difficultyNames,
@@ -59,6 +60,8 @@ export default function QuestionWorkspace({
     language: CodeLanguage
   } | null>(null)
   const [message, setMessage] = useState('')
+  // 宽屏把「侧栏」变成可拖拽面板；窄屏仍按上下顺序堆叠。
+  const wide = useMediaQuery('(min-width: 1024px)')
   const language =
     languageOverride?.id === question.id ? languageOverride.language : detectCodeLanguage(question)
   const dialog = useRef<HTMLDialogElement>(null)
@@ -68,8 +71,8 @@ export default function QuestionWorkspace({
     if (mock || examLocked || item.mastery) return
     flush()
     rate(context, rating)
+    // 选中态、侧栏熟练度和「下一题」的可用状态都已经变了，不再叠一条 toast 遮挡侧栏。
     setMessage('自评已记录，复习计划已更新。')
-    toast.success('自评已记录', { description: '复习计划已同步更新。' })
   }
   const reveal = () => {
     if (!mock && !examLocked) {
@@ -78,13 +81,22 @@ export default function QuestionWorkspace({
     }
   }
   const navigateNext = () => {
-    if (!blockedNext) {
-      flush()
-      next?.()
-    } else {
+    if (blockedNext) {
       setMessage('请先选择熟练度，或明确跳过本题。')
       toast.info('请先完成本题自评')
+      return
     }
+    flush()
+    // 没看答案就前进等同于跳过，答题卡需要留下记录，否则会被当成「未处理」。
+    if (!mock && !item.revealed && item.status === 'unanswered')
+      patchItem(context, { status: 'skipped' })
+    next?.()
+  }
+  const skipQuestion = () => {
+    flush()
+    patchItem(context, { status: 'skipped' })
+    // 切题本身就是反馈，不叠提示；组件按 recordId 重挂载，状态文案也带不过去。
+    next?.()
   }
   const navigatePrevious = () => {
     flush()
@@ -103,7 +115,11 @@ export default function QuestionWorkspace({
         return
       if (event.code === 'Space') {
         event.preventDefault()
-        reveal()
+        // 空格串成闭环：揭示答案 → 数字自评 → 空格进入下一题。
+        if (mock) navigateNext()
+        else if (!item.revealed) reveal()
+        else if (item.mastery || item.status === 'skipped') navigateNext()
+        else setMessage('先选一个熟练度，再按空格继续。')
       } else if (['1', '2', '3'].includes(event.key) && item.revealed) {
         event.preventDefault()
         doRate(({ '1': 'again', '2': 'hard', '3': 'good' } as const)[event.key as '1'])
@@ -144,257 +160,283 @@ export default function QuestionWorkspace({
       />
     </Suspense>
   )
-  return (
-    <div className={styles.studyLayout}>
-      <div>
-        <article className={`${styles.card} ${styles.studyCard}`}>
-          <div className={styles.sectionHeading}>
-            <div className={styles.questionMeta}>
-              <span>#{String(question.id).padStart(3, '0')}</span>
-              <span>{categoryNames[question.category]}</span>
-              <span>{difficultyNames[question.difficulty]}</span>
-            </div>
+  const card = (
+    <article className={`${styles.card} ${styles.studyCard}`}>
+      <div className={styles.sectionHeading}>
+        <div className={styles.questionMeta}>
+          <span>#{String(question.id).padStart(3, '0')}</span>
+          <span>{categoryNames[question.category]}</span>
+          <span>{difficultyNames[question.difficulty]}</span>
+        </div>
+        <div className={styles.cardTools}>
+          {!mock && (
             <button
-              className={`${styles.iconButton} ${p?.favorite ? styles.favorite : ''}`}
-              aria-label={p?.favorite ? '取消收藏本题' : '收藏本题'}
-              aria-pressed={!!p?.favorite}
-              onClick={() => favorite(question.id)}
+              className={`${styles.iconButton} ${item.flagged ? styles.hard : ''}`}
+              aria-label={item.flagged ? '取消待复查标记' : '标记待复查'}
+              aria-pressed={item.flagged}
+              title="标记待复查（R）"
+              onClick={() => patchItem(context, { flagged: !item.flagged })}
             >
-              <Icon name="star" size={19} />
+              <Icon name="flag" size={18} />
             </button>
-          </div>
-          <h1 className={styles.studyTitle}>{question.title}</h1>
-          <div className={styles.questionMeta}>
-            <span>{typeNames[question.type]}</span>
-            <span>建议 {question.estimatedMinutes} 分钟</span>
-            <span>{question.tags.join(' / ')}</span>
-          </div>
-          <HtmlContent html={question.promptHtml} />
-          <div className={styles.draftHeader}>
-            <h3>我的回答提纲</h3>
-            <div className={styles.actions}>
-              <span className={styles.muted}>
-                {storageError ? '保存异常，请导出数据' : '自动保存到此设备'}
-              </span>
-              <AppSelect
-                label="代码语言"
-                value={language}
-                options={codeLanguages.map((value) => ({
-                  value,
-                  label: codeLanguageNames[value],
-                }))}
-                onValueChange={(value) =>
-                  setLanguageOverride({ id: question.id, language: value as CodeLanguage })
-                }
-              />
-              <button
-                className={styles.tab}
-                onClick={() => {
-                  dialog.current?.showModal()
-                  setFullscreenOpen(true)
-                }}
-              >
-                全屏编辑
-              </button>
-            </div>
-          </div>
-          {draftArea(false)}
-          {mock ? (
-            <div className={styles.revealPanel}>
-              <p className={styles.muted} style={{ marginBottom: 14 }}>
-                标记你的回答状态，交卷后统一对照题解。
-              </p>
-              <div className={styles.actions}>
-                <button
-                  className={item.status === 'answered' ? styles.selected : ''}
-                  aria-pressed={item.status === 'answered'}
-                  onClick={() => patchItem(context, { status: 'answered' })}
-                >
-                  <Icon name="check" size={16} />
-                  已回答
-                </button>
-                <button
-                  className={item.status === 'again' ? styles.again : ''}
-                  aria-pressed={item.status === 'again'}
-                  onClick={() => patchItem(context, { status: 'again' })}
-                >
-                  不会
-                </button>
-                <button
-                  className={item.flagged ? styles.hard : ''}
-                  aria-pressed={item.flagged}
-                  onClick={() => patchItem(context, { flagged: !item.flagged })}
-                >
-                  <Icon name="flag" size={15} />
-                  待复查
-                </button>
-              </div>
-            </div>
-          ) : examLocked ? (
-            <div className={styles.notice}>
-              你有一场未完成的模拟面试，交卷后可查看题解和自评。
-              <Link to="/mock/session"> 返回面试 →</Link>
-            </div>
-          ) : (
-            <>
-              <div className={styles.revealPanel}>
-                {!item.revealed ? (
-                  <>
-                    <p className={styles.muted} style={{ marginBottom: 13 }}>
-                      已思考 {formatTime(seconds)}。准备好后，再对照你的回答。
-                    </p>
-                    <Button size="lg" onClick={reveal}>
-                      查看参考答案 <span>Space</span>
-                    </Button>
-                  </>
-                ) : (
-                  question.answerSections.map((section, index) => {
-                    const open =
-                      index === 0 ? !sections.includes(section.id) : sections.includes(section.id)
-                    return (
-                      <section className={styles.answerSection} key={section.id}>
-                        <button
-                          className={styles.answerToggle}
-                          aria-expanded={open}
-                          aria-controls={section.id}
-                          onClick={() =>
-                            setSections((old) =>
-                              old.includes(section.id)
-                                ? old.filter((id) => id !== section.id)
-                                : [...old, section.id],
-                            )
-                          }
-                        >
-                          {section.title}
-                          <span aria-hidden="true">{open ? '−' : '+'}</span>
-                        </button>
-                        {open && (
-                          <Reveal className={styles.answerContent} id={section.id}>
-                            <HtmlContent html={section.html} />
-                          </Reveal>
-                        )}
-                      </section>
-                    )
-                  })
-                )}
-              </div>
-              {item.revealed && (
-                <div className={styles.ratingBar}>
-                  <p>对照答案后，你掌握得怎么样？</p>
-                  <div className={styles.actions}>
-                    {(['again', 'hard', 'good'] as const).map((rating, index) => (
-                      <button
-                        key={rating}
-                        className={styles[rating]}
-                        aria-pressed={item.mastery === rating}
-                        disabled={!!item.mastery}
-                        onClick={() => doRate(rating)}
-                      >
-                        {index + 1} ·{' '}
-                        {rating === 'again' ? '不会' : rating === 'hard' ? '模糊' : '掌握'}
-                      </button>
-                    ))}
-                  </div>
-                  {item.mastery && (
-                    <p style={{ marginTop: 14 }}>
-                      下次复习：
-                      {p?.nextReviewAt
-                        ? new Date(p.nextReviewAt).toLocaleDateString('zh-CN')
-                        : '已安排'}
-                      {context.kind === 'detail' && (
-                        <button
-                          className={styles.tab}
-                          onClick={() => useLearning.getState().ensureDetail(question, true)}
-                        >
-                          重新练习本题
-                        </button>
-                      )}
-                    </p>
-                  )}
-                </div>
-              )}
-            </>
           )}
-          <p role="status" className={styles.muted} style={{ marginTop: 12 }}>
-            {message}
-          </p>
-        </article>
-        <div className={styles.bottomActions}>
-          <Button variant="outline" disabled={!previous} onClick={navigatePrevious}>
-            ← 上一题
-          </Button>
-          {!mock && !item.mastery && (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                flush()
-                patchItem(context, { status: 'skipped' })
-                setMessage('已跳过本题，熟练度保持不变。')
-                toast('已跳过本题')
-                next?.()
-              }}
-            >
-              跳过
-            </Button>
-          )}
-          <Button disabled={!next || blockedNext} onClick={navigateNext}>
-            {nextLabel} →
-          </Button>
+          <button
+            className={`${styles.iconButton} ${p?.favorite ? styles.favorite : ''}`}
+            aria-label={p?.favorite ? '取消收藏本题' : '收藏本题'}
+            aria-pressed={!!p?.favorite}
+            onClick={() => favorite(question.id)}
+          >
+            <Icon name="star" size={19} />
+          </button>
         </div>
       </div>
-      <aside className={`${styles.card} ${styles.studyAside}`}>
-        <h3>本题思考时间</h3>
-        <div className={styles.timer} role="timer" aria-label="本题累计用时">
-          {formatTime(seconds)}
-        </div>
-        <p className={styles.muted}>留一点时间，组织你的表达。</p>
-        {!mock && !item.mastery && (
+      <h1 className={styles.studyTitle}>{question.title}</h1>
+      <div className={styles.questionMeta}>
+        <span>{typeNames[question.type]}</span>
+        <span>建议 {question.estimatedMinutes} 分钟</span>
+        <span>{question.tags.join(' / ')}</span>
+      </div>
+      <HtmlContent html={question.promptHtml} />
+      <div className={styles.draftHeader}>
+        <h3>我的回答提纲</h3>
+        <div className={styles.actions}>
+          <span className={styles.muted}>
+            {storageError ? '保存异常，请导出数据' : '自动保存到此设备'}
+          </span>
+          <AppSelect
+            label="代码语言"
+            value={language}
+            options={codeLanguages.map((value) => ({
+              value,
+              label: codeLanguageNames[value],
+            }))}
+            onValueChange={(value) =>
+              setLanguageOverride({ id: question.id, language: value as CodeLanguage })
+            }
+          />
           <button
-            style={{ marginTop: 15, width: '100%' }}
+            className={styles.tab}
             onClick={() => {
-              flush()
-              setRunning(!running)
+              dialog.current?.showModal()
+              setFullscreenOpen(true)
             }}
           >
-            {running ? '暂停思考计时' : '开始思考'}
+            全屏编辑
           </button>
-        )}
-        <div style={{ margin: '24px 0' }}>
-          <Badge mastery={p?.mastery} />
         </div>
+      </div>
+      {draftArea(false)}
+      {mock ? (
+        <div className={styles.revealPanel}>
+          <p className={styles.muted} style={{ marginBottom: 14 }}>
+            标记你的回答状态，交卷后统一对照题解。
+          </p>
+          <div className={styles.actions}>
+            <button
+              className={item.status === 'answered' ? styles.selected : ''}
+              aria-pressed={item.status === 'answered'}
+              onClick={() => patchItem(context, { status: 'answered' })}
+            >
+              <Icon name="check" size={16} />
+              已回答
+            </button>
+            <button
+              className={item.status === 'again' ? styles.again : ''}
+              aria-pressed={item.status === 'again'}
+              onClick={() => patchItem(context, { status: 'again' })}
+            >
+              不会
+            </button>
+            <button
+              className={item.flagged ? styles.hard : ''}
+              aria-pressed={item.flagged}
+              onClick={() => patchItem(context, { flagged: !item.flagged })}
+            >
+              <Icon name="flag" size={15} />
+              待复查
+            </button>
+          </div>
+        </div>
+      ) : examLocked ? (
+        <div className={styles.notice}>
+          你有一场未完成的模拟面试，交卷后可查看题解和自评。
+          <Link to="/mock/session"> 返回面试 →</Link>
+        </div>
+      ) : (
+        <>
+          <div className={styles.revealPanel}>
+            {!item.revealed ? (
+              <>
+                <p className={styles.muted} style={{ marginBottom: 13 }}>
+                  已思考 {formatTime(seconds)}。准备好后，再对照你的回答。
+                </p>
+                <Button size="lg" onClick={reveal}>
+                  查看参考答案 <span className={styles.keyHint}>Space</span>
+                </Button>
+              </>
+            ) : (
+              question.answerSections.map((section, index) => {
+                const open =
+                  index === 0 ? !sections.includes(section.id) : sections.includes(section.id)
+                return (
+                  <section className={styles.answerSection} key={section.id}>
+                    <button
+                      className={styles.answerToggle}
+                      aria-expanded={open}
+                      aria-controls={section.id}
+                      onClick={() =>
+                        setSections((old) =>
+                          old.includes(section.id)
+                            ? old.filter((id) => id !== section.id)
+                            : [...old, section.id],
+                        )
+                      }
+                    >
+                      {section.title}
+                      <span aria-hidden="true">{open ? '−' : '+'}</span>
+                    </button>
+                    {open && (
+                      <Reveal className={styles.answerContent} id={section.id}>
+                        <HtmlContent html={section.html} />
+                      </Reveal>
+                    )}
+                  </section>
+                )
+              })
+            )}
+          </div>
+          {item.revealed && item.mastery && (
+            <div className={styles.ratingBar}>
+              <p>
+                下次复习：
+                {p?.nextReviewAt ? new Date(p.nextReviewAt).toLocaleDateString('zh-CN') : '已安排'}
+                {context.kind === 'detail' && (
+                  <button
+                    className={styles.tab}
+                    onClick={() => useLearning.getState().ensureDetail(question, true)}
+                  >
+                    重新练习本题
+                  </button>
+                )}
+              </p>
+            </div>
+          )}
+        </>
+      )}
+      <p role="status" className={styles.muted} style={{ marginTop: 12 }}>
+        {message}
+      </p>
+    </article>
+  )
+  const actions = (
+    <div className={styles.bottomActions}>
+      <Button
+        variant="outline"
+        className={styles.prevButton}
+        disabled={!previous}
+        onClick={navigatePrevious}
+      >
+        ← 上一题
+      </Button>
+      {/* 未揭示时「下一题」本身就是跳过，这里只在看过答案后提供逃逸口。*/}
+      {!mock && item.revealed && !item.mastery && (
+        <Button variant="ghost" onClick={skipQuestion}>
+          跳过
+        </Button>
+      )}
+      {!mock && item.revealed && (
+        <>
+          {!item.mastery && <span className={styles.rateHint}>掌握得怎么样</span>}
+          <div className={styles.rateGroup} role="group" aria-label="本题自评">
+            {(['again', 'hard', 'good'] as const).map((rating, index) => (
+              <button
+                key={rating}
+                className={styles[rating]}
+                aria-pressed={item.mastery === rating}
+                disabled={!!item.mastery}
+                onClick={() => doRate(rating)}
+              >
+                {index + 1} · {rating === 'again' ? '不会' : rating === 'hard' ? '模糊' : '掌握'}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      <Button
+        disabled={!next || blockedNext}
+        title={blockedNext ? '先选一个熟练度，或跳过本题' : undefined}
+        onClick={navigateNext}
+      >
+        {nextLabel} →
+      </Button>
+    </div>
+  )
+  const side = (
+    <aside className={styles.studyAside}>
+      <h3>本题思考时间</h3>
+      <div className={styles.timer} role="timer" aria-label="本题累计用时">
+        {formatTime(seconds)}
+      </div>
+      <p className={styles.muted}>留一点时间，组织你的表达。</p>
+      {!mock && !item.mastery && (
         <button
-          className={`${styles.secondary} ${item.flagged ? styles.hard : ''}`}
-          style={{ width: '100%' }}
-          aria-pressed={item.flagged}
-          onClick={() => patchItem(context, { flagged: !item.flagged })}
+          style={{ marginTop: 15, width: '100%' }}
+          onClick={() => {
+            flush()
+            setRunning(!running)
+          }}
         >
-          <Icon name="flag" size={16} />
-          {item.flagged ? '已标记待复查' : '标记待复查'}
+          {running ? '暂停思考计时' : '开始思考'}
         </button>
-        {!mock && (
-          <>
-            <h3 style={{ marginTop: 25 }}>键盘也很顺手</h3>
-            <dl className={styles.shortcutList}>
-              <dt>查看核心答案</dt>
-              <dd>
-                <kbd>Space</kbd>
-              </dd>
-              <dt>不会 / 模糊 / 掌握</dt>
-              <dd>
-                <kbd>1 / 2 / 3</kbd>
-              </dd>
-              <dt>切换题目</dt>
-              <dd>
-                <kbd>← / →</kbd>
-              </dd>
-              <dt>收藏 / 待复查</dt>
-              <dd>
-                <kbd>F / R</kbd>
-              </dd>
-            </dl>
-          </>
-        )}
-      </aside>
+      )}
+      <div style={{ margin: '24px 0' }}>
+        <Badge mastery={p?.mastery} />
+      </div>
+      {!mock && (
+        <>
+          <h3 style={{ marginTop: 25 }}>键盘也很顺手</h3>
+          <dl className={styles.shortcutList}>
+            <dt>查看核心答案</dt>
+            <dd>
+              <kbd>Space</kbd>
+            </dd>
+            <dt>不会 / 模糊 / 掌握</dt>
+            <dd>
+              <kbd>1 / 2 / 3</kbd>
+            </dd>
+            <dt>切换题目</dt>
+            <dd>
+              <kbd>← / →</kbd>
+            </dd>
+            <dt>收藏 / 待复查</dt>
+            <dd>
+              <kbd>F / R</kbd>
+            </dd>
+          </dl>
+        </>
+      )}
+    </aside>
+  )
+  return (
+    <div className={styles.studyFrame}>
+      {wide ? (
+        <div className={styles.studyPanels}>
+          <div className={styles.studyMain}>
+            <div className={styles.studyScroll}>{card}</div>
+            {actions}
+          </div>
+          <div className={styles.studySide}>
+            <div className={styles.studyScroll}>{side}</div>
+          </div>
+        </div>
+      ) : (
+        /* 窄屏只保留题目与底栏：计时、快捷键这类侧栏信息在手机上要么不可见，要么用不上。
+           待复查标记已经并入题目头部，不再需要单独一列。*/
+        <div className={styles.studyStack}>
+          {card}
+          {actions}
+        </div>
+      )}
       <dialog
         ref={dialog}
         className={styles.draftDialog}

@@ -1,10 +1,10 @@
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { questions, questionMap } from '../data/questions'
 import { categoryNames, type Category } from '../types'
 import { useLearning } from '../storage/store'
-import { dailyStats, isDue, localDate } from '../lib/learning'
+import { addDays, dailyStats, isDue, localDate } from '../lib/learning'
 import { BarChart } from '../components/Chart'
-import { Badge, Empty, Icon, PageHeader } from '../components/ui'
+import { Badge, Empty, Icon } from '../components/ui'
 import styles from '../styles/App.module.css'
 
 export function Metric({
@@ -34,11 +34,27 @@ export function Metric({
     </div>
   )
 }
+
+// 队列里最长一次做多少题：再多就变成负担，剩下的明天继续。
+const SESSION_LIMIT = 12
+
+function dayLabel(value?: string) {
+  if (!value) return ''
+  const target = localDate(value)
+  if (target === localDate()) return '今天'
+  if (target === localDate(addDays(new Date(), -1))) return '昨天'
+  return new Date(value).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
+}
+
 export default function Dashboard() {
   const progress = useLearning((s) => s.progress)
   const records = useLearning((s) => s.records)
   const practice = useLearning((s) => s.practice)
-  const due = questions.filter((q) => isDue(progress[q.id])).length
+  const start = useLearning((s) => s.start)
+  const navigate = useNavigate()
+
+  const dueQuestions = questions.filter((q) => isDue(progress[q.id]))
+  const due = dueQuestions.length
   const mastered = questions.filter((q) => progress[q.id]?.mastery === 'good').length
   const learned = questions.filter(
     (q) => progress[q.id]?.mastery && progress[q.id].mastery !== 'new',
@@ -51,95 +67,129 @@ export default function Dashboard() {
     questions.some((q) => q.category === c),
   ) as Category[]
   const trend = dailyStats(records, 7)
+  const weekCount = trend.reduce((sum, day) => sum + day.count, 0)
+  const queue = [...dueQuestions]
+    .sort((a, b) =>
+      (progress[a.id]?.nextReviewAt ?? '').localeCompare(progress[b.id]?.nextReviewAt ?? ''),
+    )
+    .slice(0, SESSION_LIMIT)
+  const minutes = queue.reduce((sum, q) => sum + q.estimatedMinutes, 0)
+  const resumable = practice && !practice.completedAt
+
+  const activeDays = new Set(
+    records
+      .filter((r) => r.status !== 'unanswered' && r.status !== 'skipped')
+      .map((r) => r.localDate),
+  )
+  let streak = 0
+  for (let offset = 0; offset < 365; offset += 1) {
+    if (!activeDays.has(localDate(addDays(new Date(), -offset)))) break
+    streak += 1
+  }
+  const lastReviewedAt = records.reduce(
+    (latest, record) => (record.submittedAt > latest ? record.submittedAt : latest),
+    '',
+  )
+  const nextReviewAt = Object.values(progress)
+    .map((item) => item.nextReviewAt)
+    .filter((value): value is string => !!value)
+    .sort()[0]
+
+  const beginReview = () => {
+    start('practice', queue, 0)
+    navigate('/practice/session')
+  }
+
+  const headline = due ? (
+    <>
+      今天有 <b>{due}</b> 道题等你温习
+    </>
+  ) : learned ? (
+    '今天的复习已经清空'
+  ) : (
+    '从一个问题开始'
+  )
+  const lead = due
+    ? `按到期时间排好了顺序，这一组 ${queue.length} 道，预计 ${minutes} 分钟。先自己讲一遍，再对照答案。`
+    : learned
+      ? '想做点新的也行，题库里还有没碰过的题；也可以再挑一个专题练一轮。'
+      : '不急着翻开题解。用几分钟，试着说出自己的理解，再对照参考答案。'
+
   return (
     <>
-      <PageHeader
-        eyebrow="YOUR LEARNING, IN PROGRESS"
-        title="每一次思考，都算数。"
-        description="从一道题开始，把理解变成清晰、有条理的表达。"
-        action={
-          <div className={styles.headerDate}>
-            {new Date().toLocaleDateString('zh-CN', {
-              month: 'long',
-              day: 'numeric',
-              weekday: 'long',
-            })}
-          </div>
-        }
-      />
-      <section className={styles.hero}>
-        <div className={styles.heroContent}>
-          <div className={styles.eyebrow}>RECALL → EXPLAIN → REFLECT</div>
-          <h2>{due ? `今天，有 ${due} 道题等你温习` : '先想一想，再看答案。'}</h2>
-          <p>
-            {due
-              ? '趁记忆还在，把模糊的知识再讲清楚一次。'
-              : '不急着翻开题解。用几分钟，试着说出自己的理解。'}
-          </p>
-          <Link
-            className={styles.primary}
-            to={
-              practice && !practice.completedAt
-                ? '/practice/session'
-                : due
-                  ? '/review'
-                  : '/practice'
-            }
-          >
-            {practice && !practice.completedAt
-              ? '继续上次练习'
-              : due
-                ? '开始今日复习'
-                : '开始专注练习'}
-            <Icon name="arrow" size={16} />
+      <section className={styles.queueHero}>
+        <p className={styles.queueDate}>
+          {new Date().toLocaleDateString('zh-CN', {
+            month: 'long',
+            day: 'numeric',
+            weekday: 'long',
+          })}
+        </p>
+        <h1>{headline}</h1>
+        <p className={styles.queueLead}>{lead}</p>
+        <div className={styles.queueActions}>
+          {resumable ? (
+            <Link className={styles.primary} to="/practice/session">
+              继续上次练习
+              <Icon name="arrow" size={16} />
+            </Link>
+          ) : due ? (
+            <button type="button" className={styles.primary} onClick={beginReview}>
+              开始复习 {queue.length} 道
+              <Icon name="arrow" size={16} />
+            </button>
+          ) : (
+            <Link className={styles.primary} to="/practice">
+              开始练习
+              <Icon name="arrow" size={16} />
+            </Link>
+          )}
+          <Link className={styles.textLink} to="/questions">
+            浏览题库
+            <Icon name="chevronRight" size={13} />
           </Link>
-          <Link className={styles.heroLink} to="/questions">
-            浏览题库 <span>↗</span>
-          </Link>
-        </div>
-        <div className={styles.recallDiagram} aria-label="思考、表达、对照、复习形成学习循环">
-          <div className={styles.recallLoop}>
-            <div>
-              <strong>主动回忆</strong>MAKE IT YOURS
-            </div>
-            <span className={styles.loopLabel}>思考</span>
-            <span className={styles.loopLabel}>表达</span>
-            <span className={styles.loopLabel}>对照</span>
-            <span className={styles.loopLabel}>复习</span>
-          </div>
         </div>
       </section>
-      <div className={styles.metricGrid}>
-        <Metric
-          label="已学习题目"
-          value={learned}
-          unit={`/ ${questions.length}`}
-          note="每一道题，都是一次积累"
-          icon="book"
-        />
-        <Metric
-          label="当前已掌握"
-          value={mastered}
-          unit="题"
-          note={`题库掌握率 ${Math.round((mastered / questions.length) * 100)}% · 基于自评`}
-          icon="check"
-        />
-        <Metric
-          label="今日待复习"
-          value={due}
-          unit="题"
-          note={due ? '按记忆间隔，及时巩固' : '复习计划会随自评生成'}
-          icon="review"
-        />
-        <Metric
-          label="今日专注"
-          value={Math.round(today.reduce((sum, r) => sum + r.seconds, 0) / 60)}
-          unit="分钟"
-          note={`已完成 ${today.length} 次作答`}
-          icon="clock"
-        />
+
+      <div className={styles.facts}>
+        <div className={styles.fact}>
+          <span>今日到期</span>
+          <strong>
+            {due}
+            <small>题</small>
+          </strong>
+        </div>
+        <div className={styles.fact}>
+          <span>已掌握</span>
+          <strong>
+            {mastered}
+            <small>/ {questions.length}</small>
+          </strong>
+        </div>
+        <div className={styles.fact}>
+          <span>连续复习</span>
+          <strong>
+            {streak}
+            <small>天</small>
+          </strong>
+        </div>
+        <div className={styles.fact}>
+          <span>本周完成</span>
+          <strong>
+            {weekCount}
+            <small>题</small>
+          </strong>
+        </div>
       </div>
-      <div className={styles.dashboardColumns}>
+      <div className={styles.queueFoot}>
+        <span>上次复习 {lastReviewedAt ? dayLabel(lastReviewedAt) : '还没有记录'}</span>
+        <span>
+          今日已作答 {today.length} 次 ·{' '}
+          {nextReviewAt ? `下次到期 ${dayLabel(nextReviewAt)}` : '完成自评后生成复习计划'}
+        </span>
+      </div>
+
+      <div className={styles.dashboardColumns} style={{ marginTop: 32 }}>
         <div className={styles.stack}>
           <BarChart
             title="本周学习节奏"

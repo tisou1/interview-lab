@@ -24,8 +24,9 @@ test('browse, search, reveal, rate, favorite and preserve hash route history', a
   await link.click()
   await expect(page).toHaveURL(/#\/questions\/\d+/)
   await expect(page.getByRole('button', { name: /查看参考答案/ })).toBeVisible()
-  // 用答案折叠按钮（aria-controls）判断答案是否展开，避开「代码语言」选择器自身的 aria-expanded。
-  await expect(page.locator('main [aria-controls]')).toHaveCount(0)
+  // 用答案折叠按钮（aria-controls 的 button）判断答案是否展开，避开「代码语言」选择器自身的 aria-expanded
+  // 与答题页分栏用的 separator（div[aria-controls]）。
+  await expect(page.locator('main button[aria-controls]')).toHaveCount(0)
   await page.getByRole('button', { name: '收藏本题', exact: true }).click()
   await setDraft(page, '我的 React 回答')
   await page.getByRole('button', { name: /查看参考答案/ }).click()
@@ -56,12 +57,13 @@ test('five-question practice restores drafts and requires a rating or skip', asy
   await expect(page.getByRole('button', { name: '下一题 →' })).toBeDisabled()
   await page.getByRole('button', { name: '3 · 掌握' }).click()
   await page.getByRole('button', { name: '下一题 →' }).click()
-  await expect(page.getByText('专注练习 · 2 / 5')).toBeVisible()
-  await page.getByRole('button', { name: '跳过', exact: true }).click()
-  await expect(page.getByText('专注练习 · 3 / 5')).toBeVisible()
+  await expect(page.getByText('第 2 题 · 共 5 题')).toBeVisible()
+  // 未揭示答案时前进等同于跳过，不需要先点「跳过」。
+  await page.getByRole('button', { name: '下一题 →' }).click()
+  await expect(page.getByText('第 3 题 · 共 5 题')).toBeVisible()
   await page.getByRole('button', { name: '结束练习', exact: true }).click()
   await page.getByRole('dialog').getByRole('button', { name: '结束练习', exact: true }).click()
-  await expect(page.getByText('这组练习完成了')).toBeVisible()
+  await expect(page.getByText('这一组做完了')).toBeVisible()
 })
 
 test('mock hides answers, restores deadline, produces report and queues weak questions', async ({
@@ -77,8 +79,9 @@ test('mock hides answers, restores deadline, produces report and queues weak que
   await page.getByRole('button', { name: '不会', exact: true }).click()
   await page.getByRole('button', { name: '待复查', exact: true }).click()
   await expect(page.getByRole('button', { name: /查看参考答案/ })).toHaveCount(0)
-  // 用答案折叠按钮（aria-controls）判断答案是否展开，避开「代码语言」选择器自身的 aria-expanded。
-  await expect(page.locator('main [aria-controls]')).toHaveCount(0)
+  // 用答案折叠按钮（aria-controls 的 button）判断答案是否展开，避开「代码语言」选择器自身的 aria-expanded
+  // 与答题页分栏用的 separator（div[aria-controls]）。
+  await expect(page.locator('main button[aria-controls]')).toHaveCount(0)
   await page.reload()
   expect(
     await page.evaluate(
@@ -181,17 +184,14 @@ test('screens, responsive navigation, fullscreen draft and keyboard focus', asyn
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   await page.goto('.')
-  await expect(page.getByRole('heading', { name: '每一次思考，都算数。' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '从一个问题开始' })).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('dashboard.png'), fullPage: true })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   )
   if (testInfo.project.name === 'mobile') {
     await page.getByRole('button', { name: '打开导航' }).click()
-    await page
-      .getByRole('dialog')
-      .getByRole('link', { name: /全部题库/ })
-      .click()
+    await page.getByRole('dialog').getByRole('link', { name: '题库', exact: true }).click()
     await expect(page).toHaveURL(/#\/questions/)
   }
   await page.goto('#/questions/98')

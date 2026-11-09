@@ -30,7 +30,7 @@ export default function Detail() {
       </Empty>
     )
   return (
-    <>
+    <div className={styles.detailShell} data-fill>
       <div className={styles.sectionHeading}>
         <Link className={styles.textLink} to="/questions">
           ← 返回题库
@@ -53,6 +53,6 @@ export default function Detail() {
       ) : (
         <p role="status">正在加载题目…</p>
       )}
-    </>
+    </div>
   )
 }

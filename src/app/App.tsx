@@ -69,7 +69,13 @@ export default function App() {
             </Route>
           </Routes>
         </Suspense>
-        <Toaster position="top-right" closeButton richColors={false} />
+        {/* 顶栏是固定 52px，提示贴着视口顶部会盖住导航。*/}
+        <Toaster
+          position="top-right"
+          offset={{ top: 60, right: 16 }}
+          closeButton
+          richColors={false}
+        />
       </HashRouter>
     </ErrorBoundary>
   )

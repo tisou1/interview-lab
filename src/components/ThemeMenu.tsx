@@ -21,7 +21,6 @@ export default function ThemeMenu() {
           aria-label={`界面主题：${current.label}`}
         >
           <Icon name="palette" size={17} />
-          <ThemeSwatches colors={current.swatches} size="sm" />
         </button>
       </PopoverTrigger>
       <PopoverContent className={styles.themePanel}>

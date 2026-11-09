@@ -32,5 +32,8 @@ export default defineConfig({
     'coverage',
     'test-results',
     'playwright-report',
+    // 工具产出的工作目录与临时 e2e 输出，不属于源码格式化管理范围。
+    '.workbuddy',
+    '.e2e-out',
   ],
 })

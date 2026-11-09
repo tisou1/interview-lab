@@ -59,14 +59,25 @@
 * {
   box-sizing: border-box;
 }
+/* 工作台是固定视口的应用外壳，滚动交给内部面板，页面本身不滚动。*/
+html,
+body,
+#root {
+  height: 100%;
+}
 body {
   margin: 0;
+  overflow: hidden;
   background: var(--bg);
   color: var(--text);
   font-family: 'Geist Variable', 'Microsoft YaHei UI', 'PingFang SC', sans-serif;
   font-size: 14px;
   font-weight: 475;
   line-height: 1.6;
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
 }
 
 /* 切换主题时只过渡颜色，不做整页动画；减少动态效果时由文件末尾的媒体查询统一关闭。*/

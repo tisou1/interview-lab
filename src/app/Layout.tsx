@@ -2,57 +2,31 @@ import { useEffect, useLayoutEffect, useRef } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import ThemeMenu from '../components/ThemeMenu'
 import { Icon } from '../components/ui'
-import { useLearning, useStorageStatus } from '../storage/store'
 import { themeById, themeMode } from '../lib/themes'
-import { questions } from '../data/questions'
-import styles from '../styles/App.module.css'
+import { useLearning, useStorageStatus } from '../storage/store'
+import styles from '../styles/Shell.module.css'
 
-const links = [
-  ['/', 'home', '学习概览'],
-  ['/questions', 'book', '全部题库'],
-  ['/practice', 'play', '专注练习'],
-  ['/review', 'review', '复习计划'],
-  ['/mock', 'mock', '模拟面试'],
-  ['/stats', 'chart', '学习统计'],
-  ['/roadmap', 'map', '学习路线'],
+// 顶栏导航与移动端抽屉共用一份定义，避免两处漂移。
+const navLinks = [
+  { to: '/', label: '今日', icon: 'home', end: true },
+  { to: '/questions', label: '题库', icon: 'book', end: false },
+  { to: '/stats', label: '统计', icon: 'chart', end: false },
+  { to: '/roadmap', label: '路线', icon: 'map', end: false },
 ]
-function Navigation({ close }: { close?: () => void }) {
+
+function Brand() {
   return (
     <>
-      <div className={styles.navLabel}>我的学习空间</div>
-      <nav aria-label="主导航">
-        {links.map(([to, icon, label]) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            onClick={close}
-            className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navActive : ''}`}
-          >
-            <Icon name={icon} />
-            {label}
-            {to === '/questions' && <span>{questions.length}</span>}
-          </NavLink>
-        ))}
-      </nav>
+      <span className={styles.brandMark}>
+        <Icon name="code" size={15} />
+      </span>
+      前端练习室
     </>
   )
 }
-function Brand() {
-  return (
-    <div className={styles.brand}>
-      <span className={styles.brandMark}>
-        <Icon name="code" size={25} />
-      </span>
-      <div>
-        前端练习室<small>INTERVIEW LAB</small>
-      </div>
-    </div>
-  )
-}
+
 export default function Layout() {
   const theme = useLearning((s) => s.theme)
-  const progress = useLearning((s) => s.progress)
   const mock = useLearning((s) => s.mock)
   // 只订阅到期判定需要的字段，避免场次内每次 patch 都重建定时器。
   const mockId = mock?.id
@@ -62,10 +36,8 @@ export default function Layout() {
   const error = useStorageStatus((s) => s.error)
   const location = useLocation()
   const dialog = useRef<HTMLDialogElement>(null)
-  const learned = questions.filter(
-    (q) => progress[q.id]?.mastery && progress[q.id].mastery !== 'new',
-  ).length
-  // 用 layout effect 在首次绘制前写入主题，避免深色主题出现白屏闪烁。
+  const main = useRef<HTMLElement>(null)
+
   useLayoutEffect(() => {
     const root = document.documentElement
     root.dataset.theme = theme
@@ -73,6 +45,7 @@ export default function Layout() {
     const meta = document.querySelector('meta[name="theme-color"]')
     if (meta) meta.setAttribute('content', themeById(theme).swatches[0])
   }, [theme])
+
   useEffect(() => {
     if (!mockId || mockCompletedAt) return
     const remaining = Date.parse(mockDeadline!) - Date.now()
@@ -90,93 +63,104 @@ export default function Layout() {
       document.removeEventListener('visibilitychange', check)
     }
   }, [mockId, mockDeadline, mockCompletedAt, finish])
+
+  // 每次切页把内容区滚动位置归零，而不是依赖浏览器恢复。
   useEffect(() => {
-    window.scrollTo(0, 0)
+    main.current?.scrollTo({ top: 0 })
     dialog.current?.close()
     // 依赖的是路由变化本身，effect 内并不读取 pathname。
     // oxlint-disable-next-line react/exhaustive-effect-dependencies
   }, [location.pathname])
+
+  const closeDrawer = () => dialog.current?.close()
+
   return (
     <div className={styles.shell}>
       <a className={styles.skipLink} href="#main">
         跳转到主要内容
       </a>
-      <aside className={styles.sidebar}>
-        <Brand />
-        <Navigation />
-        <div className={styles.sidebarBottom}>
-          <div className={styles.smallProgress}>
-            <div>
-              <span>学习是一点点积累</span>
-              <strong>
-                {learned}
-                <span> / {questions.length}</span>
-              </strong>
-            </div>
-            <progress max={questions.length} value={learned} />
-          </div>
-          <NavLink to="/settings" className={styles.navLink}>
-            <Icon name="settings" />
-            数据与设置
-          </NavLink>
-          <div className={styles.localNote}>
-            <span className={styles.dot} />
-            个人空间 · 数据保存在此设备
-          </div>
-        </div>
-      </aside>
-      <div className={styles.workspace}>
-        <div className={styles.topbar}>
-          <div className={styles.breadcrumb}>
-            <button
-              className={`${styles.iconButton} ${styles.mobileOnly}`}
-              aria-label="打开导航"
-              onClick={() => dialog.current?.showModal()}
-            >
-              <Icon name="menu" />
-            </button>
-            <span>Workspace</span>
-            <span>/</span>
-            <strong>
-              {links.find(([to]) =>
-                to === '/' ? location.pathname === '/' : location.pathname.startsWith(to),
-              )?.[2] ?? '数据与设置'}
-            </strong>
-          </div>
-          <div className={styles.topActions}>
-            <span className={styles.desktopOnly}>把知识，变成自己的回答。</span>
-            <ThemeMenu />
-            <span className={styles.avatar}>FE</span>
-          </div>
-        </div>
-        {error && (
-          <div role="alert" className={styles.errorBanner}>
-            {error} <NavLink to="/settings">管理数据</NavLink>
-          </div>
-        )}
-        <main id="main" className={styles.main}>
-          <Outlet />
-        </main>
-        <footer className={styles.footer}>
-          Frontend Interview Lab <span>理解原理 · 练习表达 · 持续复习</span>
-        </footer>
-      </div>
-      <dialog ref={dialog} className={styles.navDialog} aria-label="移动端导航">
-        <div className={styles.sectionHeading}>
+      <header className={styles.topbar}>
+        <NavLink to="/" className={styles.brand} aria-label="前端练习室首页">
           <Brand />
+        </NavLink>
+        <nav className={styles.nav} aria-label="主导航">
+          {navLinks.map((link) => (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              end={link.end}
+              className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navActive : ''}`}
+            >
+              <Icon name={link.icon} size={16} />
+              {link.label}
+            </NavLink>
+          ))}
+        </nav>
+        <div className={styles.actions}>
+          <ThemeMenu />
+          <NavLink to="/settings" className={styles.iconLink} aria-label="数据与设置">
+            <Icon name="settings" size={17} />
+          </NavLink>
           <button
-            className={styles.iconButton}
-            aria-label="关闭导航"
-            onClick={() => dialog.current?.close()}
+            type="button"
+            className={styles.menuButton}
+            aria-label="打开导航"
+            onClick={() => dialog.current?.showModal()}
           >
-            <Icon name="close" />
+            <Icon name="menu" size={18} />
           </button>
         </div>
-        <Navigation close={() => dialog.current?.close()} />
-        <NavLink to="/settings" className={styles.navLink} onClick={() => dialog.current?.close()}>
-          <Icon name="settings" />
-          数据与设置
-        </NavLink>
+      </header>
+      {error && (
+        <div role="alert" className={styles.banner}>
+          {error} <NavLink to="/settings">管理数据</NavLink>
+        </div>
+      )}
+      <main id="main" className={styles.main} ref={main} tabIndex={-1}>
+        <div className={styles.page}>
+          <Outlet />
+        </div>
+      </main>
+      <dialog ref={dialog} className={styles.drawer} aria-label="移动端导航">
+        <div className={styles.drawerHead}>
+          <span className={styles.brand}>
+            <Brand />
+          </span>
+          <button
+            type="button"
+            className={styles.drawerClose}
+            aria-label="关闭导航"
+            onClick={closeDrawer}
+          >
+            <Icon name="close" size={16} />
+          </button>
+        </div>
+        <nav className={styles.drawerNav} aria-label="页面导航">
+          {navLinks.map((link) => (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              end={link.end}
+              onClick={closeDrawer}
+              className={({ isActive }) =>
+                `${styles.drawerLink} ${isActive ? styles.drawerActive : ''}`
+              }
+            >
+              <Icon name={link.icon} size={17} />
+              {link.label}
+            </NavLink>
+          ))}
+          <NavLink
+            to="/settings"
+            onClick={closeDrawer}
+            className={({ isActive }) =>
+              `${styles.drawerLink} ${isActive ? styles.drawerActive : ''}`
+            }
+          >
+            <Icon name="settings" size={17} />
+            数据与设置
+          </NavLink>
+        </nav>
       </dialog>
     </div>
   )

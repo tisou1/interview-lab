@@ -123,6 +123,15 @@ export default function CodeEditor({
             ...defaultKeymap,
             ...historyKeymap,
             indentWithTab,
+            // 补全弹窗的 Esc 由 completionKeymap 先消费；其余情况退出编辑，
+            // 否则空格、1/2/3 这些答题快捷键会被输入框一直吃掉。
+            {
+              key: 'Escape',
+              run: (editor) => {
+                editor.contentDOM.blur()
+                return true
+              },
+            },
           ]),
           EditorState.tabSize.of(2),
           EditorView.lineWrapping,
