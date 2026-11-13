@@ -1485,6 +1485,131 @@
   font-size: 10px;
 }
 
+/* 加载骨架：几何对齐真实布局，只画结构不画细节。
+   色块统一取 --line，靠尺寸表达层级，这样六套主题都不用单独配色。
+   动效只花在一处——内容区顶部那条 2px 进度线，色块本身保持静止。*/
+.skelFade {
+  opacity: 0;
+  transition: opacity 160ms linear;
+}
+.skelFade[data-ready='true'] {
+  opacity: 1;
+}
+.skelFrame {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.skelPage {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.skelGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.skelPageBlocks {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.skelBar {
+  display: block;
+  background: var(--line);
+}
+/* 只留描边的占位：草稿框、按钮这类空心元素不该填成实心块。*/
+.skelBox {
+  background: transparent;
+  border: 1px solid var(--line);
+}
+.skelAccent {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-soft);
+}
+.skelTags {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.skelRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 14px;
+}
+.skelTitle {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 16px 0 18px;
+}
+.skelLines {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+.skelEditor {
+  margin-top: 12px;
+}
+.skelTimer {
+  margin: 12px 0 10px;
+}
+.skelAsideButton {
+  margin-top: 14px;
+}
+.skelBadge {
+  margin: 22px 0 4px;
+}
+.skelAsideGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 24px;
+}
+.skelActions > :first-child {
+  margin-right: auto;
+}
+/* 不确定进度：一条短光带循环扫过，只表达「还在动」，不承诺百分比。*/
+.skelProgress {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  overflow: hidden;
+  z-index: 3;
+}
+.skelProgress::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 34%;
+  background: var(--accent);
+  animation: skelSweep 1.2s ease-in-out infinite;
+}
+@keyframes skelSweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(310%);
+  }
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 @media (min-width: 1600px) {
   .hero {
     min-height: 235px;

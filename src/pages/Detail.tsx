@@ -2,6 +2,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { useEffect } from 'react'
 import { questions, questionMap } from '../data/questions'
 import { Empty, useQuestion } from '../components/ui'
+import { QuestionSkeleton } from '../components/Skeleton'
 import { useLearning } from '../storage/store'
 import QuestionWorkspace from '../components/QuestionWorkspace'
 import styles from '../styles/App.module.css'
@@ -51,7 +52,7 @@ export default function Detail() {
           }
         />
       ) : (
-        <p role="status">正在加载题目…</p>
+        <QuestionSkeleton />
       )}
     </div>
   )

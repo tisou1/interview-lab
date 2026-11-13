@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, type ReactNode } from 'react'
+import { Component, lazy, type ReactNode } from 'react'
 import { HashRouter, Route, Routes } from 'react-router'
 import Layout from './Layout'
 import { Empty } from '../components/ui'
@@ -37,38 +37,31 @@ export default function App() {
   return (
     <ErrorBoundary>
       <HashRouter>
-        <Suspense
-          fallback={
-            <div className="loading" role="status">
-              正在打开练习室…
-            </div>
-          }
-        >
-          <Routes>
-            <Route element={<Layout />}>
-              <Route index element={<Dashboard />} />
-              <Route path="questions" element={<Questions />} />
-              <Route path="questions/:id" element={<Detail />} />
-              <Route path="practice" element={<Practice mode="practice" />} />
-              <Route path="practice/session" element={<Session mode="practice" />} />
-              <Route path="review" element={<Questions review />} />
-              <Route path="mock" element={<Practice mode="mock" />} />
-              <Route path="mock/session" element={<Session mode="mock" />} />
-              <Route path="mock/report/:sessionId" element={<Report />} />
-              <Route path="stats" element={<Stats />} />
-              <Route path="roadmap" element={<Roadmap />} />
-              <Route path="settings" element={<Settings />} />
-              <Route
-                path="*"
-                element={
-                  <Empty title="这个页面不存在" to="/" label="返回学习概览">
-                    可以从题库重新选择一道题。
-                  </Empty>
-                }
-              />
-            </Route>
-          </Routes>
-        </Suspense>
+        {/* 路由级 Suspense 在 Layout 内部，顶栏与导航不会随懒加载一起卸载。*/}
+        <Routes>
+          <Route element={<Layout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="questions" element={<Questions />} />
+            <Route path="questions/:id" element={<Detail />} />
+            <Route path="practice" element={<Practice mode="practice" />} />
+            <Route path="practice/session" element={<Session mode="practice" />} />
+            <Route path="review" element={<Questions review />} />
+            <Route path="mock" element={<Practice mode="mock" />} />
+            <Route path="mock/session" element={<Session mode="mock" />} />
+            <Route path="mock/report/:sessionId" element={<Report />} />
+            <Route path="stats" element={<Stats />} />
+            <Route path="roadmap" element={<Roadmap />} />
+            <Route path="settings" element={<Settings />} />
+            <Route
+              path="*"
+              element={
+                <Empty title="这个页面不存在" to="/" label="返回学习概览">
+                  可以从题库重新选择一道题。
+                </Empty>
+              }
+            />
+          </Route>
+        </Routes>
         {/* 顶栏是固定 52px，提示贴着视口顶部会盖住导航。*/}
         <Toaster
           position="top-right"

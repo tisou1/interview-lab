@@ -204,10 +204,6 @@ dialog::backdrop {
   background: #00000070;
   backdrop-filter: blur(3px);
 }
-.loading {
-  padding: 60px;
-  color: var(--muted);
-}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

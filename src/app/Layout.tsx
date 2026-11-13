@@ -1,10 +1,14 @@
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { Suspense, useEffect, useLayoutEffect, useRef } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import ThemeMenu from '../components/ThemeMenu'
 import { Icon } from '../components/ui'
+import { PageSkeleton, QuestionSkeleton } from '../components/Skeleton'
 import { themeById, themeMode } from '../lib/themes'
 import { useLearning, useStorageStatus } from '../storage/store'
 import styles from '../styles/Shell.module.css'
+
+// 题目详情有固定的分栏栅格，可以照着画骨架；其余页面形状差异太大，共用通用骨架。
+const questionRoute = /^\/questions\/\d+\/?$/
 
 // 顶栏导航与移动端抽屉共用一份定义，避免两处漂移。
 const navLinks = [
@@ -118,7 +122,13 @@ export default function Layout() {
       )}
       <main id="main" className={styles.main} ref={main} tabIndex={-1}>
         <div className={styles.page}>
-          <Outlet />
+          <Suspense
+            fallback={
+              questionRoute.test(location.pathname) ? <QuestionSkeleton chrome /> : <PageSkeleton />
+            }
+          >
+            <Outlet />
+          </Suspense>
         </div>
       </main>
       <dialog ref={dialog} className={styles.drawer} aria-label="移动端导航">

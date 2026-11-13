@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import type { Mastery, Question } from '../types'
 import { masteryNames } from '../types'
 import { loadQuestion, questionMap } from '../data/questions'
+import { SkeletonLines } from './Skeleton'
 import { HeaderEntrance } from './Motion'
 import { Button } from './ui/button'
 import {
@@ -221,7 +222,15 @@ export function QuestionAnswer({ id }: { id: number }) {
   const { question, error } = useQuestion(id)
   if (!questionMap.has(id)) return <p>该题已移出当前题库，历史回答和自评仍保留。</p>
   if (error) return <p role="alert">题解加载失败，请刷新重试。</p>
-  if (!question) return <p>正在加载题解…</p>
+  if (!question)
+    return (
+      <>
+        <SkeletonLines rows={4} />
+        <p className={styles.srOnly} role="status">
+          正在加载题解…
+        </p>
+      </>
+    )
   return (
     <>
       {question.answerSections.map((section) => (
